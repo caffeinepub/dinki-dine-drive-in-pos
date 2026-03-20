@@ -1,0 +1,83 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url("/assets/fonts/PlusJakartaSans.woff2") format("woff2");
+  font-weight: 300 700;
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    --radius: 0.75rem;
+
+    /* Warm beige background */
+    --background: 0.84 0.025 68;
+    /* Off-white card surfaces */
+    --card: 0.97 0.008 75;
+    --card-foreground: 0.15 0 0;
+    --popover: 0.97 0.008 75;
+    --popover-foreground: 0.15 0 0;
+
+    /* Near-black foreground */
+    --foreground: 0.15 0 0;
+
+    /* Deep leaf green as primary */
+    --primary: 0.51 0.14 145;
+    --primary-foreground: 0.97 0.008 75;
+
+    /* Terracotta as secondary */
+    --secondary: 0.57 0.13 43;
+    --secondary-foreground: 0.97 0.008 75;
+
+    /* Muted */
+    --muted: 0.93 0.015 70;
+    --muted-foreground: 0.52 0 0;
+
+    /* Accent */
+    --accent: 0.93 0.015 70;
+    --accent-foreground: 0.27 0 0;
+
+    /* Destructive red */
+    --destructive: 0.55 0.2 22;
+    --destructive-foreground: 0.97 0 0;
+
+    /* Borders */
+    --border: 0.91 0.012 70;
+    --input: 0.91 0.012 70;
+    --ring: 0.51 0.14 145;
+
+    /* Status colors */
+    --status-received: 0.55 0.16 250;
+    --status-preparing: 0.65 0.13 65;
+    --status-ready: 0.51 0.14 145;
+    --status-delivered: 0.52 0 0;
+
+    /* Charts */
+    --chart-1: 0.51 0.14 145;
+    --chart-2: 0.57 0.13 43;
+    --chart-3: 0.65 0.13 65;
+    --chart-4: 0.55 0.16 250;
+    --chart-5: 0.55 0.2 22;
+
+    /* Sidebar */
+    --sidebar: 0.15 0.01 145;
+    --sidebar-foreground: 0.97 0.008 75;
+    --sidebar-primary: 0.51 0.14 145;
+    --sidebar-primary-foreground: 0.97 0.008 75;
+    --sidebar-accent: 0.25 0.02 145;
+    --sidebar-accent-foreground: 0.97 0.008 75;
+    --sidebar-border: 0.25 0.02 145;
+    --sidebar-ring: 0.51 0.14 145;
+  }
+
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-family: "Plus Jakarta Sans", sans-serif;
+  }
+}
