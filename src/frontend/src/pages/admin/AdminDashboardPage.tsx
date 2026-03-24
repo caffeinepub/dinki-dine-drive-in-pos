@@ -1,11 +1,20 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Car, Clock, PackageCheck, Phone, RefreshCw } from "lucide-react";
+import {
+  Car,
+  Clock,
+  PackageCheck,
+  Phone,
+  RefreshCw,
+  Users,
+} from "lucide-react";
 import { motion } from "motion/react";
+import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import type { Order } from "../../backend";
 import { useGetOrders, useUpdateOrderStatus } from "../../hooks/useQueries";
+import { playBeep } from "../../utils/beep";
 
 const STATUS_ORDER = ["Received", "Preparing", "Ready", "Delivered"];
 
@@ -38,9 +47,16 @@ function nextStatus(current: string) {
   return idx < STATUS_ORDER.length - 1 ? STATUS_ORDER[idx + 1] : null;
 }
 
-function OrderCard({ order, idx }: { order: Order; idx: number }) {
+function OrderCard({
+  order,
+  idx,
+  repeatCount,
+}: {
+  order: Order;
+  idx: number;
+  repeatCount: number;
+}) {
   const updateStatus = useUpdateOrderStatus();
-
   const next = nextStatus(order.status);
 
   const handleAdvance = async () => {
@@ -73,11 +89,22 @@ function OrderCard({ order, idx }: { order: Order; idx: number }) {
             <span>{timeAgo(order.createdAt)}</span>
           </div>
         </div>
-        <span
-          className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${statusColor(order.status)}`}
-        >
-          {order.status}
-        </span>
+        <div className="flex flex-col items-end gap-1">
+          <span
+            className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${statusColor(order.status)}`}
+          >
+            {order.status}
+          </span>
+          {repeatCount > 1 && (
+            <Badge
+              variant="outline"
+              className="text-xs gap-1 border-amber-300 text-amber-700 bg-amber-50"
+            >
+              <Users className="w-3 h-3" />
+              {repeatCount} orders from this number
+            </Badge>
+          )}
+        </div>
       </div>
 
       {/* Vehicle Info */}
@@ -101,21 +128,32 @@ function OrderCard({ order, idx }: { order: Order; idx: number }) {
       </div>
 
       {/* Items */}
-      <div className="space-y-1 mb-4">
+      <div className="space-y-1.5 mb-4">
         {order.items.map((item, itemIdx) => (
-          <div
-            key={`${itemIdx}-${item.name}`}
-            className="flex justify-between text-sm"
-          >
-            <span className="text-foreground">
-              {item.name}{" "}
-              <span className="text-muted-foreground">
-                × {item.quantity.toString()}
+          <div key={`${itemIdx}-${item.name}`}>
+            <div className="flex justify-between text-sm">
+              <span className="text-foreground">
+                {item.name}{" "}
+                <span className="text-muted-foreground">
+                  × {item.quantity.toString()}
+                </span>
               </span>
-            </span>
-            <span className="font-medium">
-              ₹{(item.price * Number(item.quantity)).toFixed(0)}
-            </span>
+              <span className="font-medium">
+                ₹{(item.price * Number(item.quantity)).toFixed(0)}
+              </span>
+            </div>
+            {item.addons && item.addons.length > 0 && (
+              <div className="ml-2 space-y-0.5 mt-0.5">
+                {item.addons.map((addon) => (
+                  <p
+                    key={addon.addonId.toString()}
+                    className="text-xs text-secondary"
+                  >
+                    + {addon.name} ₹{addon.price.toFixed(2)}
+                  </p>
+                ))}
+              </div>
+            )}
           </div>
         ))}
         <div className="flex justify-between text-sm font-bold border-t border-border pt-1.5 mt-1.5">
@@ -147,6 +185,44 @@ export default function AdminDashboardPage() {
   const activeOrders = orders?.filter((o) => o.status !== "Delivered") ?? [];
   const delivered = orders?.filter((o) => o.status === "Delivered") ?? [];
 
+  // Track known order IDs to detect new arrivals
+  const knownOrderIds = useRef<Set<string>>(new Set());
+  const isFirstLoad = useRef(true);
+
+  useEffect(() => {
+    if (!orders) return;
+
+    const incoming = orders.filter((o) => o.status === "Received");
+
+    if (isFirstLoad.current) {
+      // Seed known IDs on first load without beeping
+      for (const o of incoming) knownOrderIds.current.add(o.id.toString());
+      isFirstLoad.current = false;
+      return;
+    }
+
+    const newOrders = incoming.filter(
+      (o) => !knownOrderIds.current.has(o.id.toString()),
+    );
+
+    if (newOrders.length > 0) {
+      playBeep("alert");
+      toast.info(
+        `${newOrders.length} new order${newOrders.length > 1 ? "s" : ""} received!`,
+      );
+      for (const o of newOrders) knownOrderIds.current.add(o.id.toString());
+    }
+  }, [orders]);
+
+  // Count how many active orders per mobile number
+  const mobileCountMap = activeOrders.reduce<Record<string, number>>(
+    (acc, o) => {
+      acc[o.mobileNumber] = (acc[o.mobileNumber] ?? 0) + 1;
+      return acc;
+    },
+    {},
+  );
+
   return (
     <div className="p-4 md:p-6">
       <div className="flex items-center justify-between mb-6">
@@ -167,7 +243,9 @@ export default function AdminDashboardPage() {
           title="Refresh"
         >
           <RefreshCw
-            className={`w-5 h-5 text-muted-foreground ${isFetching ? "animate-spin" : ""}`}
+            className={`w-5 h-5 text-muted-foreground ${
+              isFetching ? "animate-spin" : ""
+            }`}
           />
         </button>
       </div>
@@ -208,7 +286,12 @@ export default function AdminDashboardPage() {
             data-ocid="orders.list"
           >
             {activeOrders.map((order, idx) => (
-              <OrderCard key={order.id.toString()} order={order} idx={idx} />
+              <OrderCard
+                key={order.id.toString()}
+                order={order}
+                idx={idx}
+                repeatCount={mobileCountMap[order.mobileNumber] ?? 1}
+              />
             ))}
           </div>
           {delivered.length > 0 && (
@@ -222,6 +305,7 @@ export default function AdminDashboardPage() {
                     key={order.id.toString()}
                     order={order}
                     idx={idx}
+                    repeatCount={1}
                   />
                 ))}
               </div>

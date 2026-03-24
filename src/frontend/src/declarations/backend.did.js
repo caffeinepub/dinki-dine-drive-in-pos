@@ -8,10 +8,28 @@
 
 import { IDL } from '@icp-sdk/core/candid';
 
+export const OrderItemAddon = IDL.Record({
+  'name' : IDL.Text,
+  'addonId' : IDL.Nat,
+  'price' : IDL.Float64,
+});
+export const OrderItem = IDL.Record({
+  'name' : IDL.Text,
+  'addons' : IDL.Vec(OrderItemAddon),
+  'quantity' : IDL.Nat,
+  'price' : IDL.Float64,
+  'menuItemId' : IDL.Nat,
+});
 export const UserRole = IDL.Variant({
   'admin' : IDL.Null,
   'user' : IDL.Null,
   'guest' : IDL.Null,
+});
+export const Addon = IDL.Record({
+  'id' : IDL.Nat,
+  'name' : IDL.Text,
+  'price' : IDL.Float64,
+  'menuItemId' : IDL.Opt(IDL.Nat),
 });
 export const UserProfile = IDL.Record({ 'name' : IDL.Text });
 export const Category = IDL.Record({ 'id' : IDL.Nat, 'name' : IDL.Text });
@@ -22,12 +40,6 @@ export const MenuItem = IDL.Record({
   'description' : IDL.Text,
   'available' : IDL.Bool,
   'price' : IDL.Float64,
-});
-export const OrderItem = IDL.Record({
-  'name' : IDL.Text,
-  'quantity' : IDL.Nat,
-  'price' : IDL.Float64,
-  'menuItemId' : IDL.Nat,
 });
 export const Order = IDL.Record({
   'id' : IDL.Nat,
@@ -44,20 +56,29 @@ export const Order = IDL.Record({
 
 export const idlService = IDL.Service({
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
+  'addAddon' : IDL.Func(
+      [IDL.Text, IDL.Float64, IDL.Opt(IDL.Nat)],
+      [IDL.Nat],
+      [],
+    ),
   'addCategory' : IDL.Func([IDL.Text], [IDL.Nat], []),
   'addMenuItem' : IDL.Func(
       [IDL.Text, IDL.Text, IDL.Float64, IDL.Nat, IDL.Bool],
       [IDL.Nat],
       [],
     ),
+  'appendToOrder' : IDL.Func([IDL.Nat, IDL.Vec(OrderItem)], [], []),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+  'deleteAddon' : IDL.Func([IDL.Nat], [], []),
   'deleteCategory' : IDL.Func([IDL.Nat], [], []),
   'deleteMenuItem' : IDL.Func([IDL.Nat], [], []),
+  'getAddons' : IDL.Func([], [IDL.Vec(Addon)], ['query']),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
   'getCategories' : IDL.Func([], [IDL.Vec(Category)], ['query']),
   'getMenuItems' : IDL.Func([], [IDL.Vec(MenuItem)], ['query']),
   'getOrders' : IDL.Func([], [IDL.Vec(Order)], ['query']),
+  'getPaymentSettings' : IDL.Func([], [IDL.Text, IDL.Text], ['query']),
   'getUserProfile' : IDL.Func(
       [IDL.Principal],
       [IDL.Opt(UserProfile)],
@@ -70,6 +91,7 @@ export const idlService = IDL.Service({
       [],
     ),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+  'setPaymentSettings' : IDL.Func([IDL.Text, IDL.Text], [], []),
   'updateMenuItem' : IDL.Func(
       [IDL.Nat, IDL.Text, IDL.Text, IDL.Float64, IDL.Nat, IDL.Bool],
       [],
@@ -81,10 +103,28 @@ export const idlService = IDL.Service({
 export const idlInitArgs = [];
 
 export const idlFactory = ({ IDL }) => {
+  const OrderItemAddon = IDL.Record({
+    'name' : IDL.Text,
+    'addonId' : IDL.Nat,
+    'price' : IDL.Float64,
+  });
+  const OrderItem = IDL.Record({
+    'name' : IDL.Text,
+    'addons' : IDL.Vec(OrderItemAddon),
+    'quantity' : IDL.Nat,
+    'price' : IDL.Float64,
+    'menuItemId' : IDL.Nat,
+  });
   const UserRole = IDL.Variant({
     'admin' : IDL.Null,
     'user' : IDL.Null,
     'guest' : IDL.Null,
+  });
+  const Addon = IDL.Record({
+    'id' : IDL.Nat,
+    'name' : IDL.Text,
+    'price' : IDL.Float64,
+    'menuItemId' : IDL.Opt(IDL.Nat),
   });
   const UserProfile = IDL.Record({ 'name' : IDL.Text });
   const Category = IDL.Record({ 'id' : IDL.Nat, 'name' : IDL.Text });
@@ -95,12 +135,6 @@ export const idlFactory = ({ IDL }) => {
     'description' : IDL.Text,
     'available' : IDL.Bool,
     'price' : IDL.Float64,
-  });
-  const OrderItem = IDL.Record({
-    'name' : IDL.Text,
-    'quantity' : IDL.Nat,
-    'price' : IDL.Float64,
-    'menuItemId' : IDL.Nat,
   });
   const Order = IDL.Record({
     'id' : IDL.Nat,
@@ -117,20 +151,29 @@ export const idlFactory = ({ IDL }) => {
   
   return IDL.Service({
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
+    'addAddon' : IDL.Func(
+        [IDL.Text, IDL.Float64, IDL.Opt(IDL.Nat)],
+        [IDL.Nat],
+        [],
+      ),
     'addCategory' : IDL.Func([IDL.Text], [IDL.Nat], []),
     'addMenuItem' : IDL.Func(
         [IDL.Text, IDL.Text, IDL.Float64, IDL.Nat, IDL.Bool],
         [IDL.Nat],
         [],
       ),
+    'appendToOrder' : IDL.Func([IDL.Nat, IDL.Vec(OrderItem)], [], []),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+    'deleteAddon' : IDL.Func([IDL.Nat], [], []),
     'deleteCategory' : IDL.Func([IDL.Nat], [], []),
     'deleteMenuItem' : IDL.Func([IDL.Nat], [], []),
+    'getAddons' : IDL.Func([], [IDL.Vec(Addon)], ['query']),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
     'getCategories' : IDL.Func([], [IDL.Vec(Category)], ['query']),
     'getMenuItems' : IDL.Func([], [IDL.Vec(MenuItem)], ['query']),
     'getOrders' : IDL.Func([], [IDL.Vec(Order)], ['query']),
+    'getPaymentSettings' : IDL.Func([], [IDL.Text, IDL.Text], ['query']),
     'getUserProfile' : IDL.Func(
         [IDL.Principal],
         [IDL.Opt(UserProfile)],
@@ -143,6 +186,7 @@ export const idlFactory = ({ IDL }) => {
         [],
       ),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+    'setPaymentSettings' : IDL.Func([IDL.Text, IDL.Text], [], []),
     'updateMenuItem' : IDL.Func(
         [IDL.Nat, IDL.Text, IDL.Text, IDL.Float64, IDL.Nat, IDL.Bool],
         [],

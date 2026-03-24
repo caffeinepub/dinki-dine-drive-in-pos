@@ -10,6 +10,12 @@ import type { ActorMethod } from '@icp-sdk/core/agent';
 import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
+export interface Addon {
+  'id' : bigint,
+  'name' : string,
+  'price' : number,
+  'menuItemId' : [] | [bigint],
+}
 export interface Category { 'id' : bigint, 'name' : string }
 export interface MenuItem {
   'id' : bigint,
@@ -33,9 +39,15 @@ export interface Order {
 }
 export interface OrderItem {
   'name' : string,
+  'addons' : Array<OrderItemAddon>,
   'quantity' : bigint,
   'price' : number,
   'menuItemId' : bigint,
+}
+export interface OrderItemAddon {
+  'name' : string,
+  'addonId' : bigint,
+  'price' : number,
 }
 export interface UserProfile { 'name' : string }
 export type UserRole = { 'admin' : null } |
@@ -43,19 +55,24 @@ export type UserRole = { 'admin' : null } |
   { 'guest' : null };
 export interface _SERVICE {
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
+  'addAddon' : ActorMethod<[string, number, [] | [bigint]], bigint>,
   'addCategory' : ActorMethod<[string], bigint>,
   'addMenuItem' : ActorMethod<
     [string, string, number, bigint, boolean],
     bigint
   >,
+  'appendToOrder' : ActorMethod<[bigint, Array<OrderItem>], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
+  'deleteAddon' : ActorMethod<[bigint], undefined>,
   'deleteCategory' : ActorMethod<[bigint], undefined>,
   'deleteMenuItem' : ActorMethod<[bigint], undefined>,
+  'getAddons' : ActorMethod<[], Array<Addon>>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getCategories' : ActorMethod<[], Array<Category>>,
   'getMenuItems' : ActorMethod<[], Array<MenuItem>>,
   'getOrders' : ActorMethod<[], Array<Order>>,
+  'getPaymentSettings' : ActorMethod<[], [string, string]>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'placeOrder' : ActorMethod<
@@ -63,6 +80,7 @@ export interface _SERVICE {
     bigint
   >,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
+  'setPaymentSettings' : ActorMethod<[string, string], undefined>,
   'updateMenuItem' : ActorMethod<
     [bigint, string, string, number, bigint, boolean],
     undefined

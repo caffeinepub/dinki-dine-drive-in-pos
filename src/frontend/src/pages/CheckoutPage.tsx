@@ -13,7 +13,7 @@ import { motion } from "motion/react";
 import { useEffect } from "react";
 import { toast } from "sonner";
 import { useAppContext } from "../context/AppContext";
-import { usePlaceOrder } from "../hooks/useQueries";
+import { useAppendToOrder, usePlaceOrder } from "../hooks/useQueries";
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
@@ -25,8 +25,12 @@ export default function CheckoutPage() {
     setLastOrderId,
     removeFromCart,
     addToCart,
+    addToSessionTotal,
+    sessionOrderId,
+    setSessionOrderId,
   } = useAppContext();
   const placeOrder = usePlaceOrder();
+  const appendToOrder = useAppendToOrder();
 
   useEffect(() => {
     if (!vehicleDetails) navigate({ to: "/" });
@@ -42,22 +46,40 @@ export default function CheckoutPage() {
       const items = cart.map((c) => ({
         menuItemId: c.menuItemId,
         name: c.name,
-        price: c.price,
+        price: c.price + (c.addons?.reduce((s, a) => s + a.price, 0) ?? 0),
         quantity: BigInt(c.quantity),
+        addons: (c.addons ?? []).map((a) => ({
+          addonId: a.addonId,
+          name: a.name,
+          price: a.price,
+        })),
       }));
-      const orderId = await placeOrder.mutateAsync({
-        mobileNumber: vehicleDetails.mobileNumber,
-        carModel: vehicleDetails.carModel,
-        carColour: vehicleDetails.carColour,
-        items,
-      });
-      setLastOrderId(orderId);
+
+      if (sessionOrderId !== null) {
+        // Append to the existing session order instead of creating a new one
+        await appendToOrder.mutateAsync({ orderId: sessionOrderId, items });
+        setLastOrderId(sessionOrderId);
+      } else {
+        // First order in this session — create a new order
+        const orderId = await placeOrder.mutateAsync({
+          mobileNumber: vehicleDetails.mobileNumber,
+          carModel: vehicleDetails.carModel,
+          carColour: vehicleDetails.carColour,
+          items,
+        });
+        setLastOrderId(orderId);
+        setSessionOrderId(orderId);
+      }
+
+      addToSessionTotal(grandTotal);
       clearCart();
       navigate({ to: "/order-confirmed" });
     } catch {
       toast.error("Failed to place order. Please try again.");
     }
   };
+
+  const isPending = placeOrder.isPending || appendToOrder.isPending;
 
   if (!vehicleDetails || cart.length === 0) return null;
 
@@ -125,53 +147,71 @@ export default function CheckoutPage() {
             </h2>
           </div>
           <div className="divide-y divide-border">
-            {cart.map((item, idx) => (
-              <motion.div
-                key={item.menuItemId.toString()}
-                data-ocid={`checkout.item.${idx + 1}`}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="px-4 py-3 flex items-center gap-3"
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm text-foreground">
-                    {item.name}
+            {cart.map((item, idx) => {
+              const addonTotal =
+                item.addons?.reduce((s, a) => s + a.price, 0) ?? 0;
+              const itemUnitPrice = item.price + addonTotal;
+              const itemLineTotal = itemUnitPrice * item.quantity;
+              return (
+                <motion.div
+                  key={`${item.menuItemId.toString()}-${idx}`}
+                  data-ocid={`checkout.item.${idx + 1}`}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="px-4 py-3 flex items-center gap-3"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm text-foreground">
+                      {item.name}
+                    </p>
+                    {item.addons && item.addons.length > 0 && (
+                      <div className="mt-0.5 space-y-0.5">
+                        {item.addons.map((a) => (
+                          <p
+                            key={a.addonId.toString()}
+                            className="text-xs text-secondary"
+                          >
+                            + {a.name} ₹{a.price.toFixed(2)}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      ₹{itemUnitPrice.toFixed(2)} each
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => removeFromCart(item.menuItemId)}
+                      className="w-7 h-7 rounded-full bg-secondary/15 text-secondary flex items-center justify-center text-sm font-bold"
+                    >
+                      −
+                    </button>
+                    <span className="w-5 text-center font-bold text-sm">
+                      {item.quantity}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        addToCart({
+                          menuItemId: item.menuItemId,
+                          name: item.name,
+                          price: item.price,
+                          addons: item.addons,
+                        })
+                      }
+                      className="w-7 h-7 rounded-full bg-secondary/15 text-secondary flex items-center justify-center text-sm font-bold"
+                    >
+                      +
+                    </button>
+                  </div>
+                  <p className="font-bold text-sm w-16 text-right">
+                    ₹{itemLineTotal.toFixed(2)}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    ₹{item.price.toFixed(2)} each
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => removeFromCart(item.menuItemId)}
-                    className="w-7 h-7 rounded-full bg-secondary/15 text-secondary flex items-center justify-center text-sm font-bold"
-                  >
-                    −
-                  </button>
-                  <span className="w-5 text-center font-bold text-sm">
-                    {item.quantity}
-                  </span>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      addToCart({
-                        menuItemId: item.menuItemId,
-                        name: item.name,
-                        price: item.price,
-                      })
-                    }
-                    className="w-7 h-7 rounded-full bg-secondary/15 text-secondary flex items-center justify-center text-sm font-bold"
-                  >
-                    +
-                  </button>
-                </div>
-                <p className="font-bold text-sm w-16 text-right">
-                  ₹{(item.price * item.quantity).toFixed(2)}
-                </p>
-              </motion.div>
-            ))}
+                </motion.div>
+              );
+            })}
           </div>
         </div>
 
@@ -200,10 +240,10 @@ export default function CheckoutPage() {
         <Button
           data-ocid="checkout.primary_button"
           onClick={handlePlaceOrder}
-          disabled={placeOrder.isPending}
+          disabled={isPending}
           className="w-full h-14 text-base font-bold rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground"
         >
-          {placeOrder.isPending ? (
+          {isPending ? (
             <>
               <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Placing Order...
             </>

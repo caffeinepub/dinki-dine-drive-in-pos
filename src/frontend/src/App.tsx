@@ -5,13 +5,13 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
-  redirect,
 } from "@tanstack/react-router";
 import AdminLayout from "./components/AdminLayout";
 import { AppProvider } from "./context/AppContext";
 import CheckoutPage from "./pages/CheckoutPage";
 import MenuPage from "./pages/MenuPage";
 import OrderConfirmedPage from "./pages/OrderConfirmedPage";
+import PaymentPage from "./pages/PaymentPage";
 import VehicleFormPage from "./pages/VehicleFormPage";
 import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
 import AdminLoginPage from "./pages/admin/AdminLoginPage";
@@ -50,6 +50,12 @@ const orderConfirmedRoute = createRoute({
   component: OrderConfirmedPage,
 });
 
+const paymentRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/payment",
+  component: PaymentPage,
+});
+
 const adminLoginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/admin/login",
@@ -79,6 +85,7 @@ const routeTree = rootRoute.addChildren([
   menuRoute,
   checkoutRoute,
   orderConfirmedRoute,
+  paymentRoute,
   adminLoginRoute,
   adminLayoutRoute.addChildren([adminDashboardRoute, adminMenuRoute]),
 ]);

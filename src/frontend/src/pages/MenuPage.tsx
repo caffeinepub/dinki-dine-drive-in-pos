@@ -1,5 +1,14 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNavigate } from "@tanstack/react-router";
 import { ArrowRight, ChefHat, Minus, Plus, ShoppingCart } from "lucide-react";
@@ -7,8 +16,13 @@ import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { Category, MenuItem } from "../backend";
+import type { CartItemAddon } from "../context/AppContext";
 import { useAppContext } from "../context/AppContext";
-import { useGetCategories, useGetMenuItems } from "../hooks/useQueries";
+import {
+  useGetAddons,
+  useGetCategories,
+  useGetMenuItems,
+} from "../hooks/useQueries";
 
 // Sample data for first-load population
 const SAMPLE_CATEGORIES: Category[] = [
@@ -149,6 +163,12 @@ const SAMPLE_ITEMS: MenuItem[] = [
   },
 ];
 
+interface AddonDialogState {
+  open: boolean;
+  item: MenuItem | null;
+  selectedAddons: CartItemAddon[];
+}
+
 export default function MenuPage() {
   const navigate = useNavigate();
   const {
@@ -160,9 +180,15 @@ export default function MenuPage() {
     cartItemCount,
   } = useAppContext();
   const [selectedCategory, setSelectedCategory] = useState<bigint | null>(null);
+  const [addonDialog, setAddonDialog] = useState<AddonDialogState>({
+    open: false,
+    item: null,
+    selectedAddons: [],
+  });
 
   const { data: categoriesData, isLoading: catLoading } = useGetCategories();
   const { data: itemsData, isLoading: itemsLoading } = useGetMenuItems();
+  const { data: addonsData = [] } = useGetAddons();
 
   const categories =
     categoriesData && categoriesData.length > 0
@@ -187,9 +213,51 @@ export default function MenuPage() {
     : allItems.filter((i) => i.available);
 
   const getCartQty = (id: bigint) =>
-    cart.find((c) => c.menuItemId === id)?.quantity ?? 0;
+    cart.filter((c) => c.menuItemId === id).reduce((s, c) => s + c.quantity, 0);
+
+  const getItemAddons = (itemId: bigint) =>
+    addonsData.filter((a) => a.menuItemId === itemId);
+
+  const handleAddClick = (item: MenuItem) => {
+    const itemAddons = getItemAddons(item.id);
+    if (itemAddons.length > 0) {
+      setAddonDialog({ open: true, item, selectedAddons: [] });
+    } else {
+      addToCart({ menuItemId: item.id, name: item.name, price: item.price });
+      toast.success(`${item.name} added!`);
+    }
+  };
+
+  const handleAddonToggle = (addon: CartItemAddon, checked: boolean) => {
+    setAddonDialog((prev) => ({
+      ...prev,
+      selectedAddons: checked
+        ? [...prev.selectedAddons, addon]
+        : prev.selectedAddons.filter((a) => a.addonId !== addon.addonId),
+    }));
+  };
+
+  const handleAddonConfirm = () => {
+    if (!addonDialog.item) return;
+    addToCart({
+      menuItemId: addonDialog.item.id,
+      name: addonDialog.item.name,
+      price: addonDialog.item.price,
+      addons: addonDialog.selectedAddons,
+    });
+    toast.success(`${addonDialog.item.name} added!`);
+    setAddonDialog({ open: false, item: null, selectedAddons: [] });
+  };
 
   const isLoading = catLoading || itemsLoading;
+
+  const addonDialogAddons = addonDialog.item
+    ? getItemAddons(addonDialog.item.id)
+    : [];
+  const addonDialogTotal = addonDialog.item
+    ? addonDialog.item.price +
+      addonDialog.selectedAddons.reduce((s, a) => s + a.price, 0)
+    : 0;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -282,6 +350,7 @@ export default function MenuPage() {
           <div className="space-y-3">
             {filteredItems.map((item, idx) => {
               const qty = getCartQty(item.id);
+              const itemAddons = getItemAddons(item.id);
               return (
                 <motion.div
                   key={item.id.toString()}
@@ -293,9 +362,20 @@ export default function MenuPage() {
                 >
                   <div className="flex justify-between items-start gap-3">
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-foreground text-base">
-                        {item.name}
-                      </h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-foreground text-base">
+                          {item.name}
+                        </h3>
+                        {itemAddons.length > 0 && (
+                          <Badge
+                            variant="secondary"
+                            className="text-xs px-1.5 py-0"
+                          >
+                            +{itemAddons.length} add-on
+                            {itemAddons.length !== 1 ? "s" : ""}
+                          </Badge>
+                        )}
+                      </div>
                       <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">
                         {item.description}
                       </p>
@@ -308,14 +388,7 @@ export default function MenuPage() {
                         <button
                           type="button"
                           data-ocid={`menu.button.${idx + 1}`}
-                          onClick={() => {
-                            addToCart({
-                              menuItemId: item.id,
-                              name: item.name,
-                              price: item.price,
-                            });
-                            toast.success(`${item.name} added!`);
-                          }}
+                          onClick={() => handleAddClick(item)}
                           className="h-10 px-5 rounded-full bg-secondary text-secondary-foreground font-semibold text-sm hover:bg-secondary/90 transition-colors"
                         >
                           Add
@@ -333,16 +406,9 @@ export default function MenuPage() {
                           <span className="w-6 text-center font-bold text-base">
                             {qty}
                           </span>
-
                           <button
                             type="button"
-                            onClick={() =>
-                              addToCart({
-                                menuItemId: item.id,
-                                name: item.name,
-                                price: item.price,
-                              })
-                            }
+                            onClick={() => handleAddClick(item)}
                             className="w-10 h-10 rounded-full bg-secondary text-secondary-foreground flex items-center justify-center hover:bg-secondary/90 transition-colors"
                           >
                             <Plus className="w-4 h-4" />
@@ -388,6 +454,77 @@ export default function MenuPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Addon Selection Dialog */}
+      <Dialog
+        open={addonDialog.open}
+        onOpenChange={(open) =>
+          !open &&
+          setAddonDialog({ open: false, item: null, selectedAddons: [] })
+        }
+      >
+        <DialogContent data-ocid="menu.dialog" className="rounded-2xl max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{addonDialog.item?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="py-2">
+            <p className="text-sm text-muted-foreground mb-3">
+              Base price: ₹{addonDialog.item?.price.toFixed(2)}
+            </p>
+            <p className="text-sm font-semibold mb-2">Customise your order:</p>
+            <div className="space-y-3">
+              {addonDialogAddons.map((addon) => {
+                const isChecked = addonDialog.selectedAddons.some(
+                  (a) => a.addonId === addon.id,
+                );
+                return (
+                  <div
+                    key={addon.id.toString()}
+                    className="flex items-center gap-3"
+                  >
+                    <Checkbox
+                      data-ocid="menu.checkbox"
+                      id={`addon-${addon.id.toString()}`}
+                      checked={isChecked}
+                      onCheckedChange={(checked) =>
+                        handleAddonToggle(
+                          {
+                            addonId: addon.id,
+                            name: addon.name,
+                            price: addon.price,
+                          },
+                          !!checked,
+                        )
+                      }
+                    />
+                    <Label
+                      htmlFor={`addon-${addon.id.toString()}`}
+                      className="flex-1 text-sm cursor-pointer"
+                    >
+                      {addon.name}
+                    </Label>
+                    <span className="text-sm font-semibold text-secondary">
+                      +₹{addon.price.toFixed(2)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          <DialogFooter className="flex-col gap-2">
+            <p className="text-xs text-muted-foreground text-center">
+              Total: ₹{addonDialogTotal.toFixed(2)}
+            </p>
+            <Button
+              data-ocid="menu.confirm_button"
+              onClick={handleAddonConfirm}
+              className="w-full rounded-xl bg-primary text-primary-foreground font-bold"
+            >
+              Add to Cart — ₹{addonDialogTotal.toFixed(2)}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

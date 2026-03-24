@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Category, MenuItem, Order, OrderItem } from "../backend";
+import type { Addon, Category, MenuItem, Order, OrderItem } from "../backend";
 import { useActor } from "./useActor";
 
 export function useGetCategories() {
@@ -39,6 +39,50 @@ export function useGetOrders() {
   });
 }
 
+export function useGetAddons() {
+  const { actor, isFetching } = useActor();
+  return useQuery<Addon[]>({
+    queryKey: ["addons"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.getAddons();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useAddAddon() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation<
+    bigint,
+    Error,
+    { name: string; price: number; menuItemId: bigint | null }
+  >({
+    mutationFn: async ({ name, price, menuItemId }) => {
+      if (!actor) throw new Error("Actor not ready");
+      return actor.addAddon(name, price, menuItemId);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["addons"] });
+    },
+  });
+}
+
+export function useDeleteAddon() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation<void, Error, bigint>({
+    mutationFn: async (id) => {
+      if (!actor) throw new Error("Actor not ready");
+      return actor.deleteAddon(id);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["addons"] });
+    },
+  });
+}
+
 export function usePlaceOrder() {
   const { actor } = useActor();
   const qc = useQueryClient();
@@ -55,6 +99,20 @@ export function usePlaceOrder() {
     mutationFn: async ({ mobileNumber, carModel, carColour, items }) => {
       if (!actor) throw new Error("Actor not ready");
       return actor.placeOrder(mobileNumber, carModel, carColour, items);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["orders"] });
+    },
+  });
+}
+
+export function useAppendToOrder() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation<void, Error, { orderId: bigint; items: OrderItem[] }>({
+    mutationFn: async ({ orderId, items }) => {
+      if (!actor) throw new Error("Actor not ready");
+      return actor.appendToOrder(orderId, items);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["orders"] });
@@ -190,5 +248,31 @@ export function useIsCallerAdmin() {
       return actor.isCallerAdmin();
     },
     enabled: !!actor && !isFetching,
+  });
+}
+
+export function useGetPaymentSettings() {
+  const { actor, isFetching } = useActor();
+  return useQuery<[string, string]>({
+    queryKey: ["paymentSettings"],
+    queryFn: async () => {
+      if (!actor) return ["", ""];
+      return (actor as any).getPaymentSettings();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useSetPaymentSettings() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation<void, Error, { phonepe: string; paytm: string }>({
+    mutationFn: async ({ phonepe, paytm }) => {
+      if (!actor) throw new Error("Actor not ready");
+      return (actor as any).setPaymentSettings(phonepe, paytm);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["paymentSettings"] });
+    },
   });
 }

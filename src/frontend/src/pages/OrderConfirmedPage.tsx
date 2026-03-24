@@ -1,15 +1,31 @@
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "@tanstack/react-router";
-import { Car, CheckCircle2, Phone } from "lucide-react";
+import {
+  Car,
+  CheckCircle2,
+  Phone,
+  Receipt,
+  UtensilsCrossed,
+} from "lucide-react";
 import { motion } from "motion/react";
+import { useEffect } from "react";
 import { useAppContext } from "../context/AppContext";
+import { playBeep } from "../utils/beep";
 
 export default function OrderConfirmedPage() {
   const navigate = useNavigate();
   const { lastOrderId } = useAppContext();
 
+  useEffect(() => {
+    playBeep("confirm");
+  }, []);
+
   const handleOrderMore = () => {
-    navigate({ to: "/" });
+    navigate({ to: "/menu" });
+  };
+
+  const handleRequestBill = () => {
+    navigate({ to: "/payment" });
   };
 
   return (
@@ -58,13 +74,25 @@ export default function OrderConfirmedPage() {
           </div>
         </div>
 
-        <Button
-          data-ocid="confirmed.primary_button"
-          onClick={handleOrderMore}
-          className="w-full h-12 font-bold rounded-xl bg-primary text-primary-foreground"
-        >
-          Done
-        </Button>
+        <div className="space-y-3">
+          <Button
+            data-ocid="confirmed.secondary_button"
+            onClick={handleOrderMore}
+            variant="outline"
+            className="w-full h-12 font-bold rounded-xl border-primary text-primary hover:bg-primary/5"
+          >
+            <UtensilsCrossed className="w-4 h-4 mr-2" />
+            Order More Items
+          </Button>
+          <Button
+            data-ocid="confirmed.primary_button"
+            onClick={handleRequestBill}
+            className="w-full h-12 font-bold rounded-xl bg-green-600 hover:bg-green-700 text-white"
+          >
+            <Receipt className="w-4 h-4 mr-2" />
+            Request Final Bill &amp; Pay
+          </Button>
+        </div>
       </motion.div>
     </div>
   );

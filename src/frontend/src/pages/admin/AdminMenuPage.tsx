@@ -8,6 +8,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -25,21 +26,38 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Pencil, Plus, Tag, Trash2 } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  CreditCard,
+  Loader2,
+  Pencil,
+  Plus,
+  PlusCircle,
+  Settings2,
+  Tag,
+  Trash2,
+} from "lucide-react";
 import { motion } from "motion/react";
 import { useState } from "react";
 import { toast } from "sonner";
 import type { Category, MenuItem } from "../../backend";
 import {
+  useAddAddon,
   useAddCategory,
   useAddMenuItem,
+  useDeleteAddon,
   useDeleteCategory,
   useDeleteMenuItem,
+  useGetAddons,
   useGetCategories,
   useGetMenuItems,
+  useGetPaymentSettings,
+  useSetPaymentSettings,
   useUpdateMenuItem,
 } from "../../hooks/useQueries";
 
@@ -59,9 +77,269 @@ const EMPTY_FORM: ItemForm = {
   available: true,
 };
 
+function AddonDialog({
+  item,
+  onClose,
+}: {
+  item: MenuItem;
+  onClose: () => void;
+}) {
+  const { data: allAddons = [] } = useGetAddons();
+  const addAddon = useAddAddon();
+  const deleteAddon = useDeleteAddon();
+  const [newName, setNewName] = useState("");
+  const [newPrice, setNewPrice] = useState("");
+
+  const itemAddons = allAddons.filter((a) => a.menuItemId === item.id);
+
+  const handleAdd = async () => {
+    const price = Number.parseFloat(newPrice);
+    if (!newName.trim() || Number.isNaN(price) || price <= 0) {
+      toast.error("Please enter a valid name and price");
+      return;
+    }
+    try {
+      await addAddon.mutateAsync({
+        name: newName.trim(),
+        price,
+        menuItemId: item.id,
+      });
+      setNewName("");
+      setNewPrice("");
+      toast.success("Add-on added");
+    } catch {
+      toast.error("Failed to add add-on");
+    }
+  };
+
+  const handleDelete = async (id: bigint, name: string) => {
+    try {
+      await deleteAddon.mutateAsync(id);
+      toast.success(`"${name}" removed`);
+    } catch {
+      toast.error("Failed to delete add-on");
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        data-ocid="addon_mgmt.dialog"
+        className="rounded-2xl max-w-sm"
+      >
+        <DialogHeader>
+          <DialogTitle className="text-base">
+            Add-ons for {item.name}
+          </DialogTitle>
+        </DialogHeader>
+
+        {/* Existing addons */}
+        <div className="space-y-2 max-h-52 overflow-y-auto">
+          {itemAddons.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              No add-ons yet.
+            </p>
+          ) : (
+            itemAddons.map((addon) => (
+              <div
+                key={addon.id.toString()}
+                className="flex items-center justify-between bg-muted rounded-xl px-3 py-2"
+              >
+                <div>
+                  <p className="text-sm font-medium">{addon.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    ₹{addon.price.toFixed(2)}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  data-ocid="addon_mgmt.delete_button"
+                  onClick={() => handleDelete(addon.id, addon.name)}
+                  disabled={deleteAddon.isPending}
+                  className="text-muted-foreground hover:text-destructive transition-colors p-1"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Add new addon */}
+        <div className="border-t border-border pt-3">
+          <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">
+            Add New
+          </p>
+          <div className="flex gap-2">
+            <Input
+              data-ocid="addon_mgmt.input"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="Add-on name"
+              className="rounded-xl h-9 text-sm flex-1"
+              onKeyDown={(e) => e.key === "Enter" && handleAdd()}
+            />
+            <Input
+              data-ocid="addon_mgmt.input"
+              type="number"
+              value={newPrice}
+              onChange={(e) => setNewPrice(e.target.value)}
+              placeholder="₹"
+              className="rounded-xl h-9 text-sm w-20"
+              min="0"
+              step="0.01"
+            />
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button
+            data-ocid="addon_mgmt.cancel_button"
+            variant="outline"
+            onClick={onClose}
+            className="rounded-xl"
+          >
+            Close
+          </Button>
+          <Button
+            data-ocid="addon_mgmt.save_button"
+            onClick={handleAdd}
+            disabled={addAddon.isPending}
+            className="rounded-xl bg-primary text-primary-foreground"
+          >
+            {addAddon.isPending ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <>
+                <PlusCircle className="w-4 h-4 mr-1" /> Add
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function PaymentSettingsSection() {
+  const { data: settings, isLoading } = useGetPaymentSettings();
+  const setSettings = useSetPaymentSettings();
+  const [expanded, setExpanded] = useState(false);
+  const [phonepe, setPhonepe] = useState("");
+  const [paytm, setPaytm] = useState("");
+  const [initialized, setInitialized] = useState(false);
+
+  // Populate once settings load
+  if (settings && !initialized) {
+    setPhonepe(settings[0]);
+    setPaytm(settings[1]);
+    setInitialized(true);
+  }
+
+  const handleSave = async () => {
+    try {
+      await setSettings.mutateAsync({
+        phonepe: phonepe.trim(),
+        paytm: paytm.trim(),
+      });
+      toast.success("Payment settings saved");
+    } catch {
+      toast.error("Failed to save payment settings");
+    }
+  };
+
+  return (
+    <div className="bg-card rounded-2xl border border-border mt-8">
+      <button
+        type="button"
+        data-ocid="payment_settings.toggle"
+        onClick={() => setExpanded((p) => !p)}
+        className="w-full flex items-center justify-between px-5 py-4 hover:bg-accent/50 rounded-2xl transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <CreditCard className="w-5 h-5 text-primary" />
+          <div className="text-left">
+            <p className="font-bold text-sm">Payment Settings</p>
+            <p className="text-xs text-muted-foreground">
+              Configure UPI IDs for PhonePe &amp; Paytm
+            </p>
+          </div>
+        </div>
+        {expanded ? (
+          <ChevronUp className="w-4 h-4 text-muted-foreground" />
+        ) : (
+          <ChevronDown className="w-4 h-4 text-muted-foreground" />
+        )}
+      </button>
+
+      {expanded && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: "auto" }}
+          exit={{ opacity: 0, height: 0 }}
+          className="px-5 pb-5"
+        >
+          <Separator className="mb-4" />
+          {isLoading ? (
+            <div className="space-y-3">
+              <Skeleton className="h-10 w-full rounded-xl" />
+              <Skeleton className="h-10 w-full rounded-xl" />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <Label className="text-sm font-semibold flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 text-xs font-bold">
+                    P
+                  </span>
+                  PhonePe UPI ID
+                </Label>
+                <Input
+                  data-ocid="payment_settings.input"
+                  value={phonepe}
+                  onChange={(e) => setPhonepe(e.target.value)}
+                  placeholder="e.g. yourname@ybl"
+                  className="rounded-xl"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-sm font-semibold flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-xs font-bold">
+                    P
+                  </span>
+                  Paytm UPI ID
+                </Label>
+                <Input
+                  data-ocid="payment_settings.input"
+                  value={paytm}
+                  onChange={(e) => setPaytm(e.target.value)}
+                  placeholder="e.g. yourname@paytm"
+                  className="rounded-xl"
+                />
+              </div>
+              <Button
+                data-ocid="payment_settings.save_button"
+                onClick={handleSave}
+                disabled={setSettings.isPending}
+                className="w-full rounded-xl bg-primary text-primary-foreground font-semibold"
+              >
+                {setSettings.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : null}
+                Save Payment Settings
+              </Button>
+            </div>
+          )}
+        </motion.div>
+      )}
+    </div>
+  );
+}
+
 export default function AdminMenuPage() {
   const { data: categories = [], isLoading: catLoading } = useGetCategories();
   const { data: menuItems = [], isLoading: itemsLoading } = useGetMenuItems();
+  const { data: allAddons = [] } = useGetAddons();
 
   const addMenuItem = useAddMenuItem();
   const updateMenuItem = useUpdateMenuItem();
@@ -85,6 +363,7 @@ export default function AdminMenuPage() {
   const [newCatName, setNewCatName] = useState("");
   const [addingCat, setAddingCat] = useState(false);
   const [filterCat, setFilterCat] = useState<string>("all");
+  const [addonDialogItem, setAddonDialogItem] = useState<MenuItem | null>(null);
 
   const openAdd = () => {
     setItemForm(EMPTY_FORM);
@@ -171,6 +450,9 @@ export default function AdminMenuPage() {
   const getCatName = (id: bigint) =>
     categories.find((c) => c.id === id)?.name ?? "Uncategorised";
   const isPending = addMenuItem.isPending || updateMenuItem.isPending;
+
+  const getAddonCount = (itemId: bigint) =>
+    allAddons.filter((a) => a.menuItemId === itemId).length;
 
   return (
     <div className="p-4 md:p-6">
@@ -261,7 +543,6 @@ export default function AdminMenuPage() {
                 className="flex items-center gap-1.5 bg-muted rounded-xl px-3 py-1.5"
               >
                 <span className="text-sm font-medium">{cat.name}</span>
-
                 <button
                   type="button"
                   data-ocid="menu_mgmt.delete_button"
@@ -320,59 +601,88 @@ export default function AdminMenuPage() {
         </div>
       ) : (
         <div className="space-y-2" data-ocid="menu_mgmt.list">
-          {filteredItems.map((item, idx) => (
-            <motion.div
-              key={item.id.toString()}
-              data-ocid={`menu_mgmt.item.${idx + 1}`}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: idx * 0.03 }}
-              className="bg-card rounded-2xl border border-border p-3 flex items-center gap-3"
-            >
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="font-semibold text-sm text-foreground">
-                    {item.name}
+          {filteredItems.map((item, idx) => {
+            const addonCount = getAddonCount(item.id);
+            return (
+              <motion.div
+                key={item.id.toString()}
+                data-ocid={`menu_mgmt.item.${idx + 1}`}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: idx * 0.03 }}
+                className="bg-card rounded-2xl border border-border p-3 flex items-center gap-3"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold text-sm text-foreground">
+                      {item.name}
+                    </p>
+                    {!item.available && (
+                      <span className="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded">
+                        Unavailable
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {getCatName(item.categoryId)} · ₹{item.price.toFixed(2)}
                   </p>
-                  {!item.available && (
-                    <span className="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded">
-                      Unavailable
-                    </span>
-                  )}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {getCatName(item.categoryId)} · ₹{item.price.toFixed(2)}
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  data-ocid={`menu_mgmt.edit_button.${idx + 1}`}
-                  onClick={() => openEdit(item)}
-                  className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-accent transition-colors"
-                >
-                  <Pencil className="w-4 h-4 text-muted-foreground" />
-                </button>
+                <div className="flex gap-2 items-center">
+                  {/* Addons button */}
+                  <button
+                    type="button"
+                    data-ocid={`menu_mgmt.button.${idx + 1}`}
+                    onClick={() => setAddonDialogItem(item)}
+                    className="flex items-center gap-1 px-2 py-1 rounded-lg bg-secondary/10 hover:bg-secondary/20 transition-colors"
+                    title="Manage add-ons"
+                  >
+                    <Settings2 className="w-3.5 h-3.5 text-secondary" />
+                    {addonCount > 0 ? (
+                      <Badge
+                        variant="secondary"
+                        className="text-xs px-1.5 py-0 h-5"
+                      >
+                        {addonCount}
+                      </Badge>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">
+                        Add-ons
+                      </span>
+                    )}
+                  </button>
 
-                <button
-                  type="button"
-                  data-ocid={`menu_mgmt.delete_button.${idx + 1}`}
-                  onClick={() =>
-                    setDeleteTarget({
-                      type: "item",
-                      id: item.id,
-                      name: item.name,
-                    })
-                  }
-                  className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-destructive/10 transition-colors"
-                >
-                  <Trash2 className="w-4 h-4 text-destructive" />
-                </button>
-              </div>
-            </motion.div>
-          ))}
+                  <button
+                    type="button"
+                    data-ocid={`menu_mgmt.edit_button.${idx + 1}`}
+                    onClick={() => openEdit(item)}
+                    className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-accent transition-colors"
+                  >
+                    <Pencil className="w-4 h-4 text-muted-foreground" />
+                  </button>
+
+                  <button
+                    type="button"
+                    data-ocid={`menu_mgmt.delete_button.${idx + 1}`}
+                    onClick={() =>
+                      setDeleteTarget({
+                        type: "item",
+                        id: item.id,
+                        name: item.name,
+                      })
+                    }
+                    className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-destructive/10 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4 text-destructive" />
+                  </button>
+                </div>
+              </motion.div>
+            );
+          })}
         </div>
       )}
+
+      {/* Payment Settings */}
+      <PaymentSettingsSection />
 
       {/* Add/Edit Item Dialog */}
       <Dialog
@@ -481,30 +791,29 @@ export default function AdminMenuPage() {
             >
               {isPending ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
+              ) : itemDialog.editing ? (
+                "Update Item"
               ) : (
-                "Save"
+                "Add Item"
               )}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirm */}
+      {/* Delete confirmation */}
       <AlertDialog
         open={!!deleteTarget}
-        onOpenChange={(open) => {
-          if (!open) setDeleteTarget(null);
-        }}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
       >
-        <AlertDialogContent data-ocid="menu_mgmt.modal" className="rounded-2xl">
+        <AlertDialogContent
+          data-ocid="menu_mgmt.dialog"
+          className="rounded-2xl"
+        >
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              Delete {deleteTarget?.type === "category" ? "Category" : "Item"}?
-            </AlertDialogTitle>
+            <AlertDialogTitle>Delete {deleteTarget?.name}?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete{" "}
-              <strong>{deleteTarget?.name}</strong>? This action cannot be
-              undone.
+              This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -524,6 +833,14 @@ export default function AdminMenuPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Addon Management Dialog */}
+      {addonDialogItem && (
+        <AddonDialog
+          item={addonDialogItem}
+          onClose={() => setAddonDialogItem(null)}
+        />
+      )}
     </div>
   );
 }

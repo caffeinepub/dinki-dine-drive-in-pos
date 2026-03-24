@@ -11,7 +11,7 @@ import {
 import { useNavigate } from "@tanstack/react-router";
 import { Car, ChefHat, Palette, Phone } from "lucide-react";
 import { motion } from "motion/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAppContext } from "../context/AppContext";
 
 const CAR_COLOURS = [
@@ -28,11 +28,18 @@ const CAR_COLOURS = [
 
 export default function VehicleFormPage() {
   const navigate = useNavigate();
-  const { setVehicleDetails } = useAppContext();
+  const { setVehicleDetails, vehicleDetails } = useAppContext();
   const [mobileNumber, setMobileNumber] = useState("");
   const [carModel, setCarModel] = useState("");
   const [carColour, setCarColour] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // If vehicle details already exist (restored from localStorage), skip to menu
+  useEffect(() => {
+    if (vehicleDetails) {
+      navigate({ to: "/menu" });
+    }
+  }, [vehicleDetails, navigate]);
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
@@ -61,164 +68,116 @@ export default function VehicleFormPage() {
           <ChefHat className="w-5 h-5 text-primary-foreground" />
         </div>
         <div>
-          <h1 className="font-bold text-base text-foreground leading-tight">
+          <h1 className="font-bold text-lg text-foreground leading-none">
             Dinki Dine Veg
           </h1>
-          <p className="text-xs text-muted-foreground">
-            Mangalore's Finest Vegetarian
-          </p>
-        </div>
-        <div className="ml-auto">
-          <span className="text-xs font-medium bg-secondary/10 text-secondary px-2 py-1 rounded-full">
-            Drive-In
-          </span>
+          <p className="text-xs text-muted-foreground">Drive-In Ordering</p>
         </div>
       </header>
 
-      {/* Hero Banner */}
-      <div className="bg-secondary px-6 py-10 text-center">
+      {/* Main */}
+      <main className="flex-1 px-4 py-6 max-w-sm mx-auto w-full">
         <motion.div
-          initial={{ opacity: 0, y: -16 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
+          transition={{ duration: 0.3 }}
         >
-          <h2 className="text-3xl font-bold text-secondary-foreground tracking-tight">
-            Dinki Dine Veg
-          </h2>
-          <p className="text-secondary-foreground/80 mt-1 text-sm font-medium">
-            Drive-In Ordering
-          </p>
-          <p className="text-secondary-foreground/70 mt-2 text-xs">
-            Park. Scan. Order. Enjoy 🌿
-          </p>
-        </motion.div>
-      </div>
-
-      {/* Form */}
-      <motion.main
-        className="flex-1 px-4 py-6"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.15 }}
-      >
-        <div className="max-w-md mx-auto">
-          <div className="bg-card rounded-2xl shadow-card p-5 border border-border">
-            <h3 className="font-bold text-lg text-foreground mb-1">
-              Your Vehicle Details
-            </h3>
-            <p className="text-sm text-muted-foreground mb-5">
-              We use this to identify and deliver your order to the right car.
+          <div className="mb-6 text-center">
+            <h2 className="text-2xl font-bold text-foreground">Welcome! 🚗</h2>
+            <p className="text-muted-foreground text-sm mt-1">
+              Enter your vehicle details to start ordering.
             </p>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Mobile */}
-              <div className="space-y-1.5">
-                <Label
-                  htmlFor="mobile"
-                  className="font-semibold text-sm flex items-center gap-1.5"
-                >
-                  <Phone className="w-4 h-4 text-secondary" /> Mobile Number
-                </Label>
-                <Input
-                  id="mobile"
-                  data-ocid="vehicle.input"
-                  type="tel"
-                  inputMode="numeric"
-                  placeholder="e.g. 9876543210"
-                  value={mobileNumber}
-                  onChange={(e) =>
-                    setMobileNumber(
-                      e.target.value.replace(/\D/g, "").slice(0, 10),
-                    )
-                  }
-                  className="h-12 text-base rounded-xl border-border"
-                  autoComplete="tel"
-                  name="mobile"
-                />
-                {errors.mobile && (
-                  <p
-                    data-ocid="vehicle.error_state"
-                    className="text-xs text-destructive"
-                  >
-                    {errors.mobile}
-                  </p>
-                )}
-              </div>
-
-              {/* Car Model */}
-              <div className="space-y-1.5">
-                <Label
-                  htmlFor="carModel"
-                  className="font-semibold text-sm flex items-center gap-1.5"
-                >
-                  <Car className="w-4 h-4 text-secondary" /> Car Model
-                </Label>
-                <Input
-                  id="carModel"
-                  data-ocid="vehicle.input"
-                  type="text"
-                  placeholder="e.g. Swift, Innova, i20"
-                  value={carModel}
-                  onChange={(e) => setCarModel(e.target.value)}
-                  className="h-12 text-base rounded-xl border-border"
-                  autoComplete="off"
-                  name="carModel"
-                />
-                {errors.carModel && (
-                  <p className="text-xs text-destructive">{errors.carModel}</p>
-                )}
-              </div>
-
-              {/* Car Colour */}
-              <div className="space-y-1.5">
-                <Label className="font-semibold text-sm flex items-center gap-1.5">
-                  <Palette className="w-4 h-4 text-secondary" /> Car Colour
-                </Label>
-                <Select value={carColour} onValueChange={setCarColour}>
-                  <SelectTrigger
-                    data-ocid="vehicle.select"
-                    className="h-12 text-base rounded-xl border-border"
-                  >
-                    <SelectValue placeholder="Select colour" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CAR_COLOURS.map((c) => (
-                      <SelectItem key={c} value={c}>
-                        {c}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.carColour && (
-                  <p className="text-xs text-destructive">{errors.carColour}</p>
-                )}
-              </div>
-
-              <Button
-                type="submit"
-                data-ocid="vehicle.primary_button"
-                className="w-full h-14 text-base font-bold rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground mt-2"
-              >
-                Start Ordering 🍽️
-              </Button>
-            </form>
           </div>
 
-          {/* Admin link */}
-          <p className="text-center mt-4 text-xs text-muted-foreground">
-            Restaurant staff?{" "}
-            <a
-              href="/admin/login"
-              className="text-primary font-semibold hover:underline"
-              data-ocid="vehicle.link"
-            >
-              Admin Panel
-            </a>
-          </p>
-        </div>
-      </motion.main>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Mobile */}
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5 text-sm font-semibold">
+                <Phone className="w-4 h-4 text-primary" /> Mobile Number
+              </Label>
+              <Input
+                data-ocid="vehicle.input"
+                type="tel"
+                value={mobileNumber}
+                onChange={(e) => setMobileNumber(e.target.value)}
+                placeholder="10-digit mobile number"
+                maxLength={10}
+                className="h-12 rounded-xl text-base"
+              />
+              {errors.mobile && (
+                <p
+                  data-ocid="vehicle.error_state"
+                  className="text-xs text-destructive"
+                >
+                  {errors.mobile}
+                </p>
+              )}
+            </div>
 
-      <footer className="py-4 text-center text-xs text-muted-foreground">
+            {/* Car Model */}
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5 text-sm font-semibold">
+                <Car className="w-4 h-4 text-primary" /> Car Model
+              </Label>
+              <Input
+                data-ocid="vehicle.input"
+                value={carModel}
+                onChange={(e) => setCarModel(e.target.value)}
+                placeholder="e.g. Maruti Swift, Honda City"
+                className="h-12 rounded-xl text-base"
+              />
+              {errors.carModel && (
+                <p
+                  data-ocid="vehicle.error_state"
+                  className="text-xs text-destructive"
+                >
+                  {errors.carModel}
+                </p>
+              )}
+            </div>
+
+            {/* Car Colour */}
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5 text-sm font-semibold">
+                <Palette className="w-4 h-4 text-primary" /> Car Colour
+              </Label>
+              <Select value={carColour} onValueChange={setCarColour}>
+                <SelectTrigger
+                  data-ocid="vehicle.select"
+                  className="h-12 rounded-xl text-base"
+                >
+                  <SelectValue placeholder="Select colour" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CAR_COLOURS.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {errors.carColour && (
+                <p
+                  data-ocid="vehicle.error_state"
+                  className="text-xs text-destructive"
+                >
+                  {errors.carColour}
+                </p>
+              )}
+            </div>
+
+            <Button
+              data-ocid="vehicle.submit_button"
+              type="submit"
+              className="w-full h-14 text-base font-bold rounded-xl mt-2"
+            >
+              Start Ordering 🍽️
+            </Button>
+          </form>
+        </motion.div>
+      </main>
+
+      <footer className="text-center text-xs text-muted-foreground py-4 px-4">
         © {currentYear}.{" "}
         <a
           href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(window.location.hostname)}`}
@@ -226,7 +185,7 @@ export default function VehicleFormPage() {
           rel="noopener noreferrer"
           className="hover:underline"
         >
-          Built with ❤️ using caffeine.ai
+          Built with love using caffeine.ai
         </a>
       </footer>
     </div>

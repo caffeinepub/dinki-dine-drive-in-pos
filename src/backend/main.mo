@@ -4,12 +4,16 @@ import Float "mo:core/Float";
 import Text "mo:core/Text";
 import Time "mo:core/Time";
 import Order "mo:core/Order";
+import List "mo:core/List";
 import Runtime "mo:core/Runtime";
 import Map "mo:core/Map";
+import Array "mo:core/Array";
 import Principal "mo:core/Principal";
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
+import Migration "migration";
 
+(with migration = Migration.run)
 actor {
   type Category = {
     id : Nat;
@@ -25,11 +29,25 @@ actor {
     available : Bool;
   };
 
-  type OrderItem = {
+  type Addon = {
+    id : Nat;
+    name : Text;
+    price : Float;
+    menuItemId : ?Nat;
+  };
+
+  type OrderItemAddon = {
+    addonId : Nat;
+    name : Text;
+    price : Float;
+  };
+
+  public type OrderItem = {
     menuItemId : Nat;
     name : Text;
     price : Float;
     quantity : Nat;
+    addons : [OrderItemAddon];
   };
 
   type Order = {
@@ -51,27 +69,21 @@ actor {
 
   var nextCategoryId = 1;
   var nextMenuItemId = 1;
+  var nextAddonId = 1;
   var nextOrderId = 1;
+
+  // Payment settings
+  var phonepeUpiId : Text = "";
+  var paytmUpiId : Text = "";
 
   let categories = Map.empty<Nat, Category>();
   let menuItems = Map.empty<Nat, MenuItem>();
+  let addons = Map.empty<Nat, Addon>();
   let orders = Map.empty<Nat, Order>();
   let userProfiles = Map.empty<Principal, UserProfile>();
 
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
-
-  module Category {
-    public func compareById(a : Category, b : Category) : Order.Order {
-      Nat.compare(a.id, b.id);
-    };
-  };
-
-  module MenuItem {
-    public func compareById(a : MenuItem, b : MenuItem) : Order.Order {
-      Nat.compare(a.id, b.id);
-    };
-  };
 
   func seedStarterCategoriesAndMenu() {
     let starterCategories = [
@@ -136,19 +148,116 @@ actor {
       menuItems.add(nextMenuItemId, menuItem);
       nextMenuItemId += 1;
     };
+
+    let defaultAddons = [
+      ("Extra Cheese", 20.0, null : ?Nat),
+      ("Extra Mayo", 15.0, null : ?Nat),
+      ("Chutney", 10.0, null : ?Nat),
+      ("Salad", 15.0, null : ?Nat),
+    ];
+
+    for (addonData in defaultAddons.values()) {
+      let (name, price, menuItemId) = addonData;
+      let addon = {
+        id = nextAddonId;
+        name;
+        price;
+        menuItemId;
+      };
+      addons.add(nextAddonId, addon);
+      nextAddonId += 1;
+    };
   };
 
   seedStarterCategoriesAndMenu();
 
+  module Category {
+    public func compareById(a : Category, b : Category) : Order.Order {
+      Nat.compare(a.id, b.id);
+    };
+  };
+
+  module MenuItem {
+    public func compareById(a : MenuItem, b : MenuItem) : Order.Order {
+      Nat.compare(a.id, b.id);
+    };
+  };
+
+  module Addon {
+    public func compareById(a : Addon, b : Addon) : Order.Order {
+      Nat.compare(a.id, b.id);
+    };
+  };
+
   func calculateTotals(items : [OrderItem]) : (Float, Float, Float) {
     var subtotal = 0.0;
-    for (item in items.vals()) {
-      subtotal := subtotal + (item.price * item.quantity.toFloat());
+    for (item in items.values()) {
+      var itemTotal = item.price * item.quantity.toFloat();
+      for (addon in item.addons.values()) {
+        itemTotal := itemTotal + addon.price * item.quantity.toFloat();
+      };
+      subtotal := subtotal + itemTotal;
     };
 
     let tax = subtotal * 0.05;
     let total = subtotal + tax;
     (subtotal, tax, total);
+  };
+
+  func addonsAreEqual(a : [OrderItemAddon], b : [OrderItemAddon]) : Bool {
+    if (a.size() != b.size()) {
+      return false;
+    };
+    var foundCount = 0;
+    for (addonA in a.values()) {
+      var found = false;
+      for (addonB in b.values()) {
+        if (addonA.addonId == addonB.addonId) {
+          found := true;
+        };
+      };
+      if (found) {
+        foundCount += 1;
+      };
+    };
+    foundCount == a.size();
+  };
+
+  func mergeOrderItems(existingItems : [OrderItem], newItems : [OrderItem]) : [OrderItem] {
+    let mergedList = List.fromArray<OrderItem>(existingItems);
+
+    for (newItem in newItems.values()) {
+      var foundIndex : ?Nat = null;
+      var idx = 0;
+
+      for (existingItem in mergedList.values()) {
+        if (
+          existingItem.menuItemId == newItem.menuItemId and
+          addonsAreEqual(existingItem.addons, newItem.addons)
+        ) {
+          foundIndex := ?idx;
+        };
+        idx += 1;
+      };
+
+      switch (foundIndex) {
+        case (null) {
+          mergedList.add(newItem);
+        };
+        case (?index) {
+          let mergedArray = mergedList.toArray();
+          let updatedMergedArray = Array.tabulate(mergedArray.size(), func(i) { if (i == index) { { mergedArray[i] with quantity = mergedArray[i].quantity + newItem.quantity } } else {
+            mergedArray[i];
+          } });
+          mergedList.clear();
+          for (item in updatedMergedArray.values()) {
+            mergedList.add(item);
+          };
+        };
+      };
+    };
+
+    mergedList.toArray();
   };
 
   // User profile functions
@@ -182,12 +291,23 @@ actor {
     categories.values().toArray().sort(Category.compareById);
   };
 
-  public shared func placeOrder(
-    mobileNumber : Text,
-    carModel : Text,
-    carColour : Text,
-    items : [OrderItem]
-  ) : async Nat {
+  public query func getAddons() : async [Addon] {
+    addons.values().toArray().sort(Addon.compareById);
+  };
+
+  public query func getPaymentSettings() : async (Text, Text) {
+    (phonepeUpiId, paytmUpiId);
+  };
+
+  public shared ({ caller }) func setPaymentSettings(phonepe : Text, paytm : Text) : async () {
+    if (not AccessControl.isAdmin(accessControlState, caller)) {
+      Runtime.trap("Unauthorized: Only admins can perform this action");
+    };
+    phonepeUpiId := phonepe;
+    paytmUpiId := paytm;
+  };
+
+  public shared func placeOrder(mobileNumber : Text, carModel : Text, carColour : Text, items : [OrderItem]) : async Nat {
     let (subtotal, tax, total) = calculateTotals(items);
 
     let order : Order = {
@@ -206,6 +326,31 @@ actor {
     orders.add(nextOrderId, order);
     nextOrderId += 1;
     order.id;
+  };
+
+  public shared func appendToOrder(orderId : Nat, newItems : [OrderItem]) : async () {
+    switch (orders.get(orderId)) {
+      case (null) { Runtime.trap("Order not found") };
+      case (?order) {
+        let mergedItems = mergeOrderItems(order.items, newItems);
+        let (subtotal, tax, total) = calculateTotals(mergedItems);
+
+        let updatedOrder : Order = {
+          id = order.id;
+          mobileNumber = order.mobileNumber;
+          carModel = order.carModel;
+          carColour = order.carColour;
+          items = mergedItems;
+          status = order.status;
+          createdAt = order.createdAt;
+          subtotal;
+          tax;
+          total;
+        };
+
+        orders.add(orderId, updatedOrder);
+      };
+    };
   };
 
   // Admin-only APIs
@@ -332,5 +477,39 @@ actor {
       Runtime.trap("Unauthorized: Only admins can perform this action");
     };
     categories.remove(id);
+  };
+
+  public shared ({ caller }) func addAddon(name : Text, price : Float, menuItemId : ?Nat) : async Nat {
+    if (not AccessControl.isAdmin(accessControlState, caller)) {
+      Runtime.trap("Unauthorized: Only admins can perform this action");
+    };
+
+    switch (menuItemId) {
+      case (?id) {
+        switch (menuItems.get(id)) {
+          case (null) { Runtime.trap("Menu item not found") };
+          case (?_) {};
+        };
+      };
+      case (null) {};
+    };
+
+    let addon : Addon = {
+      id = nextAddonId;
+      name;
+      price;
+      menuItemId;
+    };
+
+    addons.add(nextAddonId, addon);
+    nextAddonId += 1;
+    addon.id;
+  };
+
+  public shared ({ caller }) func deleteAddon(id : Nat) : async () {
+    if (not AccessControl.isAdmin(accessControlState, caller)) {
+      Runtime.trap("Unauthorized: Only admins can perform this action");
+    };
+    addons.remove(id);
   };
 };
