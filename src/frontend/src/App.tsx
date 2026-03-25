@@ -16,6 +16,7 @@ import VehicleFormPage from "./pages/VehicleFormPage";
 import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
 import AdminLoginPage from "./pages/admin/AdminLoginPage";
 import AdminMenuPage from "./pages/admin/AdminMenuPage";
+import InvoicePage from "./pages/admin/InvoicePage";
 
 const rootRoute = createRootRoute({
   component: () => (
@@ -80,6 +81,12 @@ const adminMenuRoute = createRoute({
   component: AdminMenuPage,
 });
 
+const adminInvoiceRoute = createRoute({
+  getParentRoute: () => adminLayoutRoute,
+  path: "/admin/invoice/$orderId",
+  component: InvoicePage,
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   menuRoute,
@@ -87,7 +94,11 @@ const routeTree = rootRoute.addChildren([
   orderConfirmedRoute,
   paymentRoute,
   adminLoginRoute,
-  adminLayoutRoute.addChildren([adminDashboardRoute, adminMenuRoute]),
+  adminLayoutRoute.addChildren([
+    adminDashboardRoute,
+    adminMenuRoute,
+    adminInvoiceRoute,
+  ]),
 ]);
 
 const router = createRouter({ routeTree });

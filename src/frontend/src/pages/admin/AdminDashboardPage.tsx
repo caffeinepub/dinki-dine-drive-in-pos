@@ -1,16 +1,19 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useNavigate } from "@tanstack/react-router";
 import {
   Car,
   Clock,
+  FileText,
+  FlaskConical,
   PackageCheck,
   Phone,
   RefreshCw,
   Users,
 } from "lucide-react";
 import { motion } from "motion/react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Order } from "../../backend";
 import { useGetOrders, useUpdateOrderStatus } from "../../hooks/useQueries";
@@ -47,6 +50,267 @@ function nextStatus(current: string) {
   return idx < STATUS_ORDER.length - 1 ? STATUS_ORDER[idx + 1] : null;
 }
 
+// --- Demo data ---
+const _DEMO_STATUSES = ["Received", "Preparing", "Ready", "Delivered"];
+
+interface DemoOrder {
+  id: string;
+  mobileNumber: string;
+  carModel: string;
+  carColour: string;
+  status: string;
+  createdAt: bigint;
+  total: number;
+  items: {
+    name: string;
+    quantity: number;
+    price: number;
+    addons: { addonId: number; name: string; price: number }[];
+  }[];
+}
+
+const DEMO_ORDERS: DemoOrder[] = [
+  {
+    id: "101",
+    mobileNumber: "9876543210",
+    carModel: "Swift",
+    carColour: "White",
+    status: "Received",
+    createdAt: BigInt(Date.now() - 3 * 60 * 1000) * 1_000_000n,
+    total: 360,
+    items: [
+      {
+        name: "Masala Dosa",
+        quantity: 2,
+        price: 90,
+        addons: [{ addonId: 1, name: "Extra Chutney", price: 10 }],
+      },
+      {
+        name: "Filter Coffee",
+        quantity: 2,
+        price: 40,
+        addons: [],
+      },
+      {
+        name: "Kesari Bath",
+        quantity: 1,
+        price: 70,
+        addons: [],
+      },
+    ],
+  },
+  {
+    id: "102",
+    mobileNumber: "9123456789",
+    carModel: "Innova",
+    carColour: "Silver",
+    status: "Preparing",
+    createdAt: BigInt(Date.now() - 8 * 60 * 1000) * 1_000_000n,
+    total: 520,
+    items: [
+      {
+        name: "Idli (3 pcs)",
+        quantity: 2,
+        price: 60,
+        addons: [{ addonId: 2, name: "Ghee", price: 15 }],
+      },
+      {
+        name: "Veg Uttapam",
+        quantity: 2,
+        price: 100,
+        addons: [],
+      },
+      {
+        name: "Mango Lassi",
+        quantity: 2,
+        price: 80,
+        addons: [],
+      },
+    ],
+  },
+  {
+    id: "103",
+    mobileNumber: "9988776655",
+    carModel: "Creta",
+    carColour: "Red",
+    status: "Ready",
+    createdAt: BigInt(Date.now() - 15 * 60 * 1000) * 1_000_000n,
+    total: 290,
+    items: [
+      {
+        name: "Poha",
+        quantity: 2,
+        price: 55,
+        addons: [],
+      },
+      {
+        name: "Upma",
+        quantity: 1,
+        price: 60,
+        addons: [{ addonId: 3, name: "Extra Pickle", price: 5 }],
+      },
+      {
+        name: "Chai",
+        quantity: 3,
+        price: 30,
+        addons: [],
+      },
+    ],
+  },
+  {
+    id: "100",
+    mobileNumber: "9000011111",
+    carModel: "Baleno",
+    carColour: "Blue",
+    status: "Delivered",
+    createdAt: BigInt(Date.now() - 35 * 60 * 1000) * 1_000_000n,
+    total: 210,
+    items: [
+      {
+        name: "Puri Bhaji",
+        quantity: 2,
+        price: 80,
+        addons: [],
+      },
+      {
+        name: "Lassi",
+        quantity: 1,
+        price: 50,
+        addons: [],
+      },
+    ],
+  },
+];
+
+function DemoOrderCard({
+  order,
+  idx,
+  onStatusAdvance,
+}: {
+  order: DemoOrder;
+  idx: number;
+  onStatusAdvance: (id: string, newStatus: string) => void;
+}) {
+  const next = nextStatus(order.status);
+  const repeatCount = 1;
+
+  const handleAdvance = () => {
+    if (!next) return;
+    onStatusAdvance(order.id, next);
+    toast.success(`Order #${order.id} → ${next}`);
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: idx * 0.05 }}
+      className={`bg-card rounded-2xl border shadow-xs p-4 ${
+        order.status === "Received" ? "border-primary/40" : "border-border"
+      }`}
+    >
+      <div className="flex items-start justify-between mb-3">
+        <div>
+          <p className="font-bold text-lg text-foreground">Order #{order.id}</p>
+          <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+            <Clock className="w-3 h-3" />
+            <span>{timeAgo(order.createdAt)}</span>
+          </div>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <span
+            className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${statusColor(order.status)}`}
+          >
+            {order.status}
+          </span>
+          {repeatCount > 1 && (
+            <Badge
+              variant="outline"
+              className="text-xs gap-1 border-amber-300 text-amber-700 bg-amber-50"
+            >
+              <Users className="w-3 h-3" />
+              {repeatCount} orders from this number
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      {/* Vehicle Info */}
+      <div className="flex gap-3 mb-3 bg-muted rounded-xl p-2.5">
+        <div className="flex items-center gap-1.5 flex-1">
+          <Car className="w-4 h-4 text-secondary flex-shrink-0" />
+          <div>
+            <p className="text-xs text-muted-foreground">Vehicle</p>
+            <p className="font-semibold text-sm">
+              {order.carColour} {order.carModel}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Phone className="w-4 h-4 text-secondary flex-shrink-0" />
+          <div>
+            <p className="text-xs text-muted-foreground">Mobile</p>
+            <p className="font-semibold text-sm">{order.mobileNumber}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Items */}
+      <div className="space-y-1.5 mb-4">
+        {order.items.map((item, itemIdx) => (
+          <div key={`${itemIdx}-${item.name}`}>
+            <div className="flex justify-between text-sm">
+              <span className="text-foreground">
+                {item.name}{" "}
+                <span className="text-muted-foreground">× {item.quantity}</span>
+              </span>
+              <span className="font-medium">
+                ₹{(item.price * item.quantity).toFixed(0)}
+              </span>
+            </div>
+            {item.addons && item.addons.length > 0 && (
+              <div className="ml-2 space-y-0.5 mt-0.5">
+                {item.addons.map((addon) => (
+                  <p key={addon.addonId} className="text-xs text-secondary">
+                    + {addon.name} ₹{addon.price.toFixed(2)}
+                  </p>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+        <div className="flex justify-between text-sm font-bold border-t border-border pt-1.5 mt-1.5">
+          <span>Total</span>
+          <span className="text-primary">₹{order.total.toFixed(2)}</span>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex-1 rounded-xl gap-1.5"
+          onClick={() => toast.info("Demo mode: invoice not available")}
+        >
+          <FileText className="w-4 h-4" />
+          Print Bill
+        </Button>
+        {next && (
+          <Button
+            onClick={handleAdvance}
+            size="sm"
+            className="flex-1 rounded-xl bg-primary text-primary-foreground font-semibold"
+          >
+            <PackageCheck className="w-4 h-4 mr-1.5" />
+            Mark as {next}
+          </Button>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
 function OrderCard({
   order,
   idx,
@@ -57,6 +321,7 @@ function OrderCard({
   repeatCount: number;
 }) {
   const updateStatus = useUpdateOrderStatus();
+  const navigate = useNavigate();
   const next = nextStatus(order.status);
 
   const handleAdvance = async () => {
@@ -67,6 +332,10 @@ function OrderCard({
     } catch {
       toast.error("Failed to update order status");
     }
+  };
+
+  const handlePrintBill = () => {
+    navigate({ to: `/admin/invoice/${order.id.toString()}` });
   };
 
   return (
@@ -163,29 +432,47 @@ function OrderCard({
       </div>
 
       {/* Actions */}
-      {next && (
+      <div className="flex gap-2">
         <Button
-          data-ocid={`orders.button.${idx + 1}`}
-          onClick={handleAdvance}
-          disabled={updateStatus.isPending}
+          data-ocid={`orders.secondary_button.${idx + 1}`}
+          variant="outline"
           size="sm"
-          className="w-full rounded-xl bg-primary text-primary-foreground font-semibold"
+          className="flex-1 rounded-xl gap-1.5"
+          onClick={handlePrintBill}
         >
-          <PackageCheck className="w-4 h-4 mr-1.5" />
-          Mark as {next}
+          <FileText className="w-4 h-4" />
+          Print Bill
         </Button>
-      )}
+        {next && (
+          <Button
+            data-ocid={`orders.button.${idx + 1}`}
+            onClick={handleAdvance}
+            disabled={updateStatus.isPending}
+            size="sm"
+            className="flex-1 rounded-xl bg-primary text-primary-foreground font-semibold"
+          >
+            <PackageCheck className="w-4 h-4 mr-1.5" />
+            Mark as {next}
+          </Button>
+        )}
+      </div>
     </motion.div>
   );
 }
 
 export default function AdminDashboardPage() {
   const { data: orders, isLoading, refetch, isFetching } = useGetOrders();
+  const [demoMode, setDemoMode] = useState(false);
+  const [demoOrders, setDemoOrders] = useState<DemoOrder[]>(DEMO_ORDERS);
 
   const activeOrders = orders?.filter((o) => o.status !== "Delivered") ?? [];
   const delivered = orders?.filter((o) => o.status === "Delivered") ?? [];
 
-  // Track known order IDs to detect new arrivals
+  const activeDemoOrders = demoOrders.filter((o) => o.status !== "Delivered");
+  const deliveredDemoOrders = demoOrders.filter(
+    (o) => o.status === "Delivered",
+  );
+
   const knownOrderIds = useRef<Set<string>>(new Set());
   const isFirstLoad = useRef(true);
 
@@ -195,7 +482,6 @@ export default function AdminDashboardPage() {
     const incoming = orders.filter((o) => o.status === "Received");
 
     if (isFirstLoad.current) {
-      // Seed known IDs on first load without beeping
       for (const o of incoming) knownOrderIds.current.add(o.id.toString());
       isFirstLoad.current = false;
       return;
@@ -214,7 +500,6 @@ export default function AdminDashboardPage() {
     }
   }, [orders]);
 
-  // Count how many active orders per mobile number
   const mobileCountMap = activeOrders.reduce<Record<string, number>>(
     (acc, o) => {
       acc[o.mobileNumber] = (acc[o.mobileNumber] ?? 0) + 1;
@@ -223,34 +508,118 @@ export default function AdminDashboardPage() {
     {},
   );
 
+  const handleDemoStatusAdvance = (id: string, newStatus: string) => {
+    setDemoOrders((prev) =>
+      prev.map((o) => (o.id === id ? { ...o, status: newStatus } : o)),
+    );
+  };
+
+  // Show demo mode when no real orders and not loading
+  const showEmptyState = !isLoading && activeOrders.length === 0 && !demoMode;
+
   return (
     <div className="p-4 md:p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-foreground">
-            Live Orders
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground">
+              Live Orders
+            </h1>
+            {demoMode && (
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-300">
+                DEMO
+              </span>
+            )}
+          </div>
           <p className="text-muted-foreground text-sm mt-0.5">
-            Auto-refreshes every 10 seconds
+            {demoMode
+              ? "Sample orders for preview — not real data"
+              : "Auto-refreshes every 10 seconds"}
           </p>
         </div>
 
-        <button
-          type="button"
-          data-ocid="orders.secondary_button"
-          onClick={() => refetch()}
-          className="p-2 rounded-xl hover:bg-accent transition-colors"
-          title="Refresh"
-        >
-          <RefreshCw
-            className={`w-5 h-5 text-muted-foreground ${
-              isFetching ? "animate-spin" : ""
+        <div className="flex items-center gap-2">
+          {!demoMode && (
+            <button
+              type="button"
+              data-ocid="orders.secondary_button"
+              onClick={() => refetch()}
+              className="p-2 rounded-xl hover:bg-accent transition-colors"
+              title="Refresh"
+            >
+              <RefreshCw
+                className={`w-5 h-5 text-muted-foreground ${
+                  isFetching ? "animate-spin" : ""
+                }`}
+              />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              setDemoMode((v) => !v);
+              setDemoOrders(DEMO_ORDERS);
+            }}
+            className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl border transition-colors ${
+              demoMode
+                ? "bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-200"
+                : "bg-muted text-muted-foreground border-border hover:bg-accent"
             }`}
-          />
-        </button>
+            title={demoMode ? "Exit demo mode" : "Preview with sample orders"}
+          >
+            <FlaskConical className="w-3.5 h-3.5" />
+            {demoMode ? "Exit Demo" : "Preview"}
+          </button>
+        </div>
       </div>
 
-      {isLoading ? (
+      {demoMode ? (
+        <>
+          {activeDemoOrders.length === 0 ? (
+            <div className="text-center py-20">
+              <Car className="w-16 h-16 mx-auto text-muted-foreground/30 mb-4" />
+              <h2 className="text-xl font-bold text-muted-foreground">
+                All demo orders delivered!
+              </h2>
+              <button
+                type="button"
+                onClick={() => setDemoOrders(DEMO_ORDERS)}
+                className="mt-3 text-sm text-primary underline"
+              >
+                Reset demo
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+              {activeDemoOrders.map((order, idx) => (
+                <DemoOrderCard
+                  key={order.id}
+                  order={order}
+                  idx={idx}
+                  onStatusAdvance={handleDemoStatusAdvance}
+                />
+              ))}
+            </div>
+          )}
+          {deliveredDemoOrders.length > 0 && (
+            <details className="mt-6">
+              <summary className="text-sm font-semibold text-muted-foreground cursor-pointer select-none mb-3">
+                Delivered Orders ({deliveredDemoOrders.length})
+              </summary>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 opacity-60">
+                {deliveredDemoOrders.map((order, idx) => (
+                  <DemoOrderCard
+                    key={order.id}
+                    order={order}
+                    idx={idx}
+                    onStatusAdvance={handleDemoStatusAdvance}
+                  />
+                ))}
+              </div>
+            </details>
+          )}
+        </>
+      ) : isLoading ? (
         <div
           data-ocid="orders.loading_state"
           className="grid grid-cols-1 md:grid-cols-2 gap-4"
@@ -269,7 +638,7 @@ export default function AdminDashboardPage() {
             </div>
           ))}
         </div>
-      ) : activeOrders.length === 0 ? (
+      ) : showEmptyState ? (
         <div data-ocid="orders.empty_state" className="text-center py-20">
           <Car className="w-16 h-16 mx-auto text-muted-foreground/30 mb-4" />
           <h2 className="text-xl font-bold text-muted-foreground">
@@ -278,6 +647,14 @@ export default function AdminDashboardPage() {
           <p className="text-muted-foreground text-sm mt-1">
             New orders will appear here automatically.
           </p>
+          <button
+            type="button"
+            onClick={() => setDemoMode(true)}
+            className="mt-4 flex items-center gap-1.5 mx-auto text-sm font-semibold px-4 py-2 rounded-xl bg-muted text-muted-foreground border border-border hover:bg-accent transition-colors"
+          >
+            <FlaskConical className="w-4 h-4" />
+            Preview with sample orders
+          </button>
         </div>
       ) : (
         <>
