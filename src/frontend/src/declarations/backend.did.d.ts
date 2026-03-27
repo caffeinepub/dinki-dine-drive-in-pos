@@ -31,9 +31,10 @@ export interface Order {
   'status' : string,
   'total' : number,
   'carModel' : string,
+  'carColour' : string,
+  'carNumber' : string,
   'createdAt' : bigint,
   'mobileNumber' : string,
-  'carColour' : string,
   'items' : Array<OrderItem>,
   'subtotal' : number,
 }
@@ -76,7 +77,7 @@ export interface _SERVICE {
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'placeOrder' : ActorMethod<
-    [string, string, string, Array<OrderItem>],
+    [string, string, string, string, Array<OrderItem>],
     bigint
   >,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,

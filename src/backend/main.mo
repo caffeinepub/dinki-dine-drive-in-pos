@@ -50,11 +50,27 @@ actor {
     addons : [OrderItemAddon];
   };
 
+  // Legacy Order type (without carNumber) — used to read existing stable data
+  type OrderV1 = {
+    id : Nat;
+    mobileNumber : Text;
+    carModel : Text;
+    carColour : Text;
+    items : [OrderItem];
+    status : Text;
+    createdAt : Int;
+    subtotal : Float;
+    tax : Float;
+    total : Float;
+  };
+
+  // Current Order type (with carNumber)
   type Order = {
     id : Nat;
     mobileNumber : Text;
     carModel : Text;
     carColour : Text;
+    carNumber : Text;
     items : [OrderItem];
     status : Text;
     createdAt : Int;
@@ -79,11 +95,38 @@ actor {
   let categories = Map.empty<Nat, Category>();
   let menuItems = Map.empty<Nat, MenuItem>();
   let addons = Map.empty<Nat, Addon>();
-  let orders = Map.empty<Nat, Order>();
+
+  // Legacy orders map — keeps old stable variable name so existing data is preserved
+  let orders : Map.Map<Nat, OrderV1> = Map.empty();
+
+  // New orders map with carNumber support
+  let ordersV2 = Map.empty<Nat, Order>();
+
   let userProfiles = Map.empty<Principal, UserProfile>();
 
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
+
+  // Migrate legacy orders (no carNumber) into ordersV2 on upgrade
+  system func postupgrade() {
+    if (ordersV2.size() == 0) {
+      for ((k, v) in orders.entries()) {
+        ordersV2.add(k, {
+          id = v.id;
+          mobileNumber = v.mobileNumber;
+          carModel = v.carModel;
+          carColour = v.carColour;
+          carNumber = "";
+          items = v.items;
+          status = v.status;
+          createdAt = v.createdAt;
+          subtotal = v.subtotal;
+          tax = v.tax;
+          total = v.total;
+        });
+      };
+    };
+  };
 
   func seedStarterCategoriesAndMenu() {
     let starterCategories = [
@@ -307,7 +350,7 @@ actor {
     paytmUpiId := paytm;
   };
 
-  public shared func placeOrder(mobileNumber : Text, carModel : Text, carColour : Text, items : [OrderItem]) : async Nat {
+  public shared func placeOrder(mobileNumber : Text, carModel : Text, carColour : Text, carNumber : Text, items : [OrderItem]) : async Nat {
     let (subtotal, tax, total) = calculateTotals(items);
 
     let order : Order = {
@@ -315,6 +358,7 @@ actor {
       mobileNumber;
       carModel;
       carColour;
+      carNumber;
       items;
       status = "Received";
       createdAt = Time.now();
@@ -323,13 +367,13 @@ actor {
       total;
     };
 
-    orders.add(nextOrderId, order);
+    ordersV2.add(nextOrderId, order);
     nextOrderId += 1;
     order.id;
   };
 
   public shared func appendToOrder(orderId : Nat, newItems : [OrderItem]) : async () {
-    switch (orders.get(orderId)) {
+    switch (ordersV2.get(orderId)) {
       case (null) { Runtime.trap("Order not found") };
       case (?order) {
         let mergedItems = mergeOrderItems(order.items, newItems);
@@ -340,6 +384,7 @@ actor {
           mobileNumber = order.mobileNumber;
           carModel = order.carModel;
           carColour = order.carColour;
+          carNumber = order.carNumber;
           items = mergedItems;
           status = order.status;
           createdAt = order.createdAt;
@@ -348,7 +393,7 @@ actor {
           total;
         };
 
-        orders.add(orderId, updatedOrder);
+        ordersV2.add(orderId, updatedOrder);
       };
     };
   };
@@ -358,7 +403,7 @@ actor {
     if (not AccessControl.isAdmin(accessControlState, caller)) {
       Runtime.trap("Unauthorized: Only admins can perform this action");
     };
-    orders.values().toArray().sort(
+    ordersV2.values().toArray().sort(
       func(a, b) {
         Int.compare(b.createdAt, a.createdAt);
       }
@@ -369,7 +414,7 @@ actor {
     if (not AccessControl.isAdmin(accessControlState, caller)) {
       Runtime.trap("Unauthorized: Only admins can perform this action");
     };
-    switch (orders.get(orderId)) {
+    switch (ordersV2.get(orderId)) {
       case (null) { Runtime.trap("Order not found") };
       case (?order) {
         let updatedOrder = {
@@ -377,6 +422,7 @@ actor {
           mobileNumber = order.mobileNumber;
           carModel = order.carModel;
           carColour = order.carColour;
+          carNumber = order.carNumber;
           items = order.items;
           status;
           createdAt = order.createdAt;
@@ -384,7 +430,7 @@ actor {
           tax = order.tax;
           total = order.total;
         };
-        orders.add(orderId, updatedOrder);
+        ordersV2.add(orderId, updatedOrder);
       };
     };
   };

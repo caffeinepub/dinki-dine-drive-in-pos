@@ -4,6 +4,7 @@ import { useNavigate } from "@tanstack/react-router";
 import {
   ArrowLeft,
   Car,
+  Hash,
   Loader2,
   Palette,
   Phone,
@@ -13,6 +14,7 @@ import { motion } from "motion/react";
 import { useEffect } from "react";
 import { toast } from "sonner";
 import { useAppContext } from "../context/AppContext";
+import { useActor } from "../hooks/useActor";
 import { useAppendToOrder, usePlaceOrder } from "../hooks/useQueries";
 
 export default function CheckoutPage() {
@@ -31,6 +33,7 @@ export default function CheckoutPage() {
   } = useAppContext();
   const placeOrder = usePlaceOrder();
   const appendToOrder = useAppendToOrder();
+  const { isFetching: actorFetching } = useActor();
 
   useEffect(() => {
     if (!vehicleDetails) navigate({ to: "/" });
@@ -46,7 +49,7 @@ export default function CheckoutPage() {
       const items = cart.map((c) => ({
         menuItemId: c.menuItemId,
         name: c.name,
-        price: c.price + (c.addons?.reduce((s, a) => s + a.price, 0) ?? 0),
+        price: c.price,
         quantity: BigInt(c.quantity),
         addons: (c.addons ?? []).map((a) => ({
           addonId: a.addonId,
@@ -56,15 +59,27 @@ export default function CheckoutPage() {
       }));
 
       if (sessionOrderId !== null) {
-        // Append to the existing session order instead of creating a new one
-        await appendToOrder.mutateAsync({ orderId: sessionOrderId, items });
-        setLastOrderId(sessionOrderId);
+        try {
+          await appendToOrder.mutateAsync({ orderId: sessionOrderId, items });
+          setLastOrderId(sessionOrderId);
+        } catch {
+          // Order may no longer exist (e.g. after canister reset). Place as fresh order.
+          const orderId = await placeOrder.mutateAsync({
+            mobileNumber: vehicleDetails.mobileNumber,
+            carModel: vehicleDetails.carModel,
+            carColour: vehicleDetails.carColour,
+            carNumber: vehicleDetails.carNumber,
+            items,
+          });
+          setLastOrderId(orderId);
+          setSessionOrderId(orderId);
+        }
       } else {
-        // First order in this session — create a new order
         const orderId = await placeOrder.mutateAsync({
           mobileNumber: vehicleDetails.mobileNumber,
           carModel: vehicleDetails.carModel,
           carColour: vehicleDetails.carColour,
+          carNumber: vehicleDetails.carNumber,
           items,
         });
         setLastOrderId(orderId);
@@ -74,12 +89,17 @@ export default function CheckoutPage() {
       addToSessionTotal(grandTotal);
       clearCart();
       navigate({ to: "/order-confirmed" });
-    } catch {
-      toast.error("Failed to place order. Please try again.");
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Failed to place order. Please try again.",
+      );
     }
   };
 
-  const isPending = placeOrder.isPending || appendToOrder.isPending;
+  const isPending =
+    placeOrder.isPending || appendToOrder.isPending || actorFetching;
 
   if (!vehicleDetails || cart.length === 0) return null;
 
@@ -108,7 +128,7 @@ export default function CheckoutPage() {
           <h2 className="font-bold text-sm text-secondary mb-3 uppercase tracking-wide">
             Your Vehicle
           </h2>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2 mb-2">
             <div className="flex items-center gap-1.5">
               <Car className="w-4 h-4 text-secondary flex-shrink-0" />
               <div>
@@ -124,6 +144,17 @@ export default function CheckoutPage() {
                 <p className="text-xs text-muted-foreground">Colour</p>
                 <p className="font-semibold text-sm">
                   {vehicleDetails.carColour}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="flex items-center gap-1.5">
+              <Hash className="w-4 h-4 text-secondary flex-shrink-0" />
+              <div>
+                <p className="text-xs text-muted-foreground">Car Number</p>
+                <p className="font-semibold text-sm">
+                  {vehicleDetails.carNumber}
                 </p>
               </div>
             </div>

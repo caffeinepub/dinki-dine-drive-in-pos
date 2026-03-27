@@ -7,6 +7,7 @@ import {
   Clock,
   FileText,
   FlaskConical,
+  Hash,
   PackageCheck,
   Phone,
   RefreshCw,
@@ -51,13 +52,12 @@ function nextStatus(current: string) {
 }
 
 // --- Demo data ---
-const _DEMO_STATUSES = ["Received", "Preparing", "Ready", "Delivered"];
-
 interface DemoOrder {
   id: string;
   mobileNumber: string;
   carModel: string;
   carColour: string;
+  carNumber: string;
   status: string;
   createdAt: bigint;
   total: number;
@@ -75,6 +75,7 @@ const DEMO_ORDERS: DemoOrder[] = [
     mobileNumber: "9876543210",
     carModel: "Swift",
     carColour: "White",
+    carNumber: "KA 01 AB 1234",
     status: "Received",
     createdAt: BigInt(Date.now() - 3 * 60 * 1000) * 1_000_000n,
     total: 360,
@@ -85,18 +86,8 @@ const DEMO_ORDERS: DemoOrder[] = [
         price: 90,
         addons: [{ addonId: 1, name: "Extra Chutney", price: 10 }],
       },
-      {
-        name: "Filter Coffee",
-        quantity: 2,
-        price: 40,
-        addons: [],
-      },
-      {
-        name: "Kesari Bath",
-        quantity: 1,
-        price: 70,
-        addons: [],
-      },
+      { name: "Filter Coffee", quantity: 2, price: 40, addons: [] },
+      { name: "Kesari Bath", quantity: 1, price: 70, addons: [] },
     ],
   },
   {
@@ -104,6 +95,7 @@ const DEMO_ORDERS: DemoOrder[] = [
     mobileNumber: "9123456789",
     carModel: "Innova",
     carColour: "Silver",
+    carNumber: "MH 12 CD 5678",
     status: "Preparing",
     createdAt: BigInt(Date.now() - 8 * 60 * 1000) * 1_000_000n,
     total: 520,
@@ -114,18 +106,8 @@ const DEMO_ORDERS: DemoOrder[] = [
         price: 60,
         addons: [{ addonId: 2, name: "Ghee", price: 15 }],
       },
-      {
-        name: "Veg Uttapam",
-        quantity: 2,
-        price: 100,
-        addons: [],
-      },
-      {
-        name: "Mango Lassi",
-        quantity: 2,
-        price: 80,
-        addons: [],
-      },
+      { name: "Veg Uttapam", quantity: 2, price: 100, addons: [] },
+      { name: "Mango Lassi", quantity: 2, price: 80, addons: [] },
     ],
   },
   {
@@ -133,28 +115,19 @@ const DEMO_ORDERS: DemoOrder[] = [
     mobileNumber: "9988776655",
     carModel: "Creta",
     carColour: "Red",
+    carNumber: "KA 05 EF 9012",
     status: "Ready",
     createdAt: BigInt(Date.now() - 15 * 60 * 1000) * 1_000_000n,
     total: 290,
     items: [
-      {
-        name: "Poha",
-        quantity: 2,
-        price: 55,
-        addons: [],
-      },
+      { name: "Poha", quantity: 2, price: 55, addons: [] },
       {
         name: "Upma",
         quantity: 1,
         price: 60,
         addons: [{ addonId: 3, name: "Extra Pickle", price: 5 }],
       },
-      {
-        name: "Chai",
-        quantity: 3,
-        price: 30,
-        addons: [],
-      },
+      { name: "Chai", quantity: 3, price: 30, addons: [] },
     ],
   },
   {
@@ -162,25 +135,56 @@ const DEMO_ORDERS: DemoOrder[] = [
     mobileNumber: "9000011111",
     carModel: "Baleno",
     carColour: "Blue",
+    carNumber: "KA 19 GH 3456",
     status: "Delivered",
     createdAt: BigInt(Date.now() - 35 * 60 * 1000) * 1_000_000n,
     total: 210,
     items: [
-      {
-        name: "Puri Bhaji",
-        quantity: 2,
-        price: 80,
-        addons: [],
-      },
-      {
-        name: "Lassi",
-        quantity: 1,
-        price: 50,
-        addons: [],
-      },
+      { name: "Puri Bhaji", quantity: 2, price: 80, addons: [] },
+      { name: "Lassi", quantity: 1, price: 50, addons: [] },
     ],
   },
 ];
+
+function VehicleInfo({
+  carColour,
+  carModel,
+  carNumber,
+  mobileNumber,
+}: {
+  carColour: string;
+  carModel: string;
+  carNumber: string;
+  mobileNumber: string;
+}) {
+  return (
+    <div className="grid grid-cols-3 gap-2 mb-3 bg-muted rounded-xl p-2.5">
+      <div className="flex items-center gap-1.5">
+        <Car className="w-4 h-4 text-secondary flex-shrink-0" />
+        <div>
+          <p className="text-xs text-muted-foreground">Vehicle</p>
+          <p className="font-semibold text-sm">
+            {carColour} {carModel}
+          </p>
+        </div>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <Hash className="w-4 h-4 text-secondary flex-shrink-0" />
+        <div>
+          <p className="text-xs text-muted-foreground">Car No.</p>
+          <p className="font-semibold text-sm">{carNumber}</p>
+        </div>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <Phone className="w-4 h-4 text-secondary flex-shrink-0" />
+        <div>
+          <p className="text-xs text-muted-foreground">Mobile</p>
+          <p className="font-semibold text-sm">{mobileNumber}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function DemoOrderCard({
   order,
@@ -192,7 +196,6 @@ function DemoOrderCard({
   onStatusAdvance: (id: string, newStatus: string) => void;
 }) {
   const next = nextStatus(order.status);
-  const repeatCount = 1;
 
   const handleAdvance = () => {
     if (!next) return;
@@ -217,43 +220,19 @@ function DemoOrderCard({
             <span>{timeAgo(order.createdAt)}</span>
           </div>
         </div>
-        <div className="flex flex-col items-end gap-1">
-          <span
-            className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${statusColor(order.status)}`}
-          >
-            {order.status}
-          </span>
-          {repeatCount > 1 && (
-            <Badge
-              variant="outline"
-              className="text-xs gap-1 border-amber-300 text-amber-700 bg-amber-50"
-            >
-              <Users className="w-3 h-3" />
-              {repeatCount} orders from this number
-            </Badge>
-          )}
-        </div>
+        <span
+          className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${statusColor(order.status)}`}
+        >
+          {order.status}
+        </span>
       </div>
 
-      {/* Vehicle Info */}
-      <div className="flex gap-3 mb-3 bg-muted rounded-xl p-2.5">
-        <div className="flex items-center gap-1.5 flex-1">
-          <Car className="w-4 h-4 text-secondary flex-shrink-0" />
-          <div>
-            <p className="text-xs text-muted-foreground">Vehicle</p>
-            <p className="font-semibold text-sm">
-              {order.carColour} {order.carModel}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <Phone className="w-4 h-4 text-secondary flex-shrink-0" />
-          <div>
-            <p className="text-xs text-muted-foreground">Mobile</p>
-            <p className="font-semibold text-sm">{order.mobileNumber}</p>
-          </div>
-        </div>
-      </div>
+      <VehicleInfo
+        carColour={order.carColour}
+        carModel={order.carModel}
+        carNumber={order.carNumber}
+        mobileNumber={order.mobileNumber}
+      />
 
       {/* Items */}
       <div className="space-y-1.5 mb-4">
@@ -376,25 +355,12 @@ function OrderCard({
         </div>
       </div>
 
-      {/* Vehicle Info */}
-      <div className="flex gap-3 mb-3 bg-muted rounded-xl p-2.5">
-        <div className="flex items-center gap-1.5 flex-1">
-          <Car className="w-4 h-4 text-secondary flex-shrink-0" />
-          <div>
-            <p className="text-xs text-muted-foreground">Vehicle</p>
-            <p className="font-semibold text-sm">
-              {order.carColour} {order.carModel}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <Phone className="w-4 h-4 text-secondary flex-shrink-0" />
-          <div>
-            <p className="text-xs text-muted-foreground">Mobile</p>
-            <p className="font-semibold text-sm">{order.mobileNumber}</p>
-          </div>
-        </div>
-      </div>
+      <VehicleInfo
+        carColour={order.carColour}
+        carModel={order.carModel}
+        carNumber={order.carNumber}
+        mobileNumber={order.mobileNumber}
+      />
 
       {/* Items */}
       <div className="space-y-1.5 mb-4">
@@ -514,7 +480,6 @@ export default function AdminDashboardPage() {
     );
   };
 
-  // Show demo mode when no real orders and not loading
   const showEmptyState = !isLoading && activeOrders.length === 0 && !demoMode;
 
   return (

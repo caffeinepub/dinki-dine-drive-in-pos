@@ -10,6 +10,7 @@ export interface VehicleDetails {
   mobileNumber: string;
   carModel: string;
   carColour: string;
+  carNumber: string;
 }
 
 export interface CartItemAddon {
@@ -32,7 +33,18 @@ function loadVehicle(): VehicleDetails | null {
   try {
     const raw = localStorage.getItem(VEHICLE_KEY);
     if (!raw) return null;
-    return JSON.parse(raw) as VehicleDetails;
+    const data = JSON.parse(raw) as VehicleDetails;
+    // If loaded data is missing required fields (e.g. carNumber from older sessions), discard it
+    if (
+      !data.mobileNumber ||
+      !data.carModel ||
+      !data.carColour ||
+      !data.carNumber
+    ) {
+      localStorage.removeItem(VEHICLE_KEY);
+      return null;
+    }
+    return data;
   } catch {
     return null;
   }

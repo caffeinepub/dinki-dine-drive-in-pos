@@ -93,12 +93,25 @@ export function usePlaceOrder() {
       mobileNumber: string;
       carModel: string;
       carColour: string;
+      carNumber: string;
       items: OrderItem[];
     }
   >({
-    mutationFn: async ({ mobileNumber, carModel, carColour, items }) => {
+    mutationFn: async ({
+      mobileNumber,
+      carModel,
+      carColour,
+      carNumber,
+      items,
+    }) => {
       if (!actor) throw new Error("Actor not ready");
-      return actor.placeOrder(mobileNumber, carModel, carColour, items);
+      return actor.placeOrder(
+        mobileNumber,
+        carModel,
+        carColour,
+        carNumber,
+        items,
+      );
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["orders"] });

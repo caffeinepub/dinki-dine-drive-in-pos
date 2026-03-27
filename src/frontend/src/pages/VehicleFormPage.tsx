@@ -9,7 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useNavigate } from "@tanstack/react-router";
-import { Car, ChefHat, Palette, Phone } from "lucide-react";
+import { Car, ChefHat, Hash, Palette, Phone } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { useAppContext } from "../context/AppContext";
@@ -32,6 +32,7 @@ export default function VehicleFormPage() {
   const [mobileNumber, setMobileNumber] = useState("");
   const [carModel, setCarModel] = useState("");
   const [carColour, setCarColour] = useState("");
+  const [carNumber, setCarNumber] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // If vehicle details already exist (restored from localStorage), skip to menu
@@ -47,6 +48,7 @@ export default function VehicleFormPage() {
       newErrors.mobile = "Enter a valid 10-digit mobile number";
     if (!carModel.trim()) newErrors.carModel = "Please enter your car model";
     if (!carColour) newErrors.carColour = "Please select your car colour";
+    if (!carNumber.trim()) newErrors.carNumber = "Please enter your car number";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -54,7 +56,12 @@ export default function VehicleFormPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
-    setVehicleDetails({ mobileNumber, carModel: carModel.trim(), carColour });
+    setVehicleDetails({
+      mobileNumber,
+      carModel: carModel.trim(),
+      carColour,
+      carNumber: carNumber.trim().toUpperCase(),
+    });
     navigate({ to: "/menu" });
   };
 
@@ -162,6 +169,28 @@ export default function VehicleFormPage() {
                   className="text-xs text-destructive"
                 >
                   {errors.carColour}
+                </p>
+              )}
+            </div>
+
+            {/* Car Number */}
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5 text-sm font-semibold">
+                <Hash className="w-4 h-4 text-primary" /> Car Number
+              </Label>
+              <Input
+                data-ocid="vehicle.input"
+                value={carNumber}
+                onChange={(e) => setCarNumber(e.target.value)}
+                placeholder="e.g. KA 01 AB 1234"
+                className="h-12 rounded-xl text-base uppercase"
+              />
+              {errors.carNumber && (
+                <p
+                  data-ocid="vehicle.error_state"
+                  className="text-xs text-destructive"
+                >
+                  {errors.carNumber}
                 </p>
               )}
             </div>

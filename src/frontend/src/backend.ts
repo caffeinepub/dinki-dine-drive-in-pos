@@ -122,6 +122,7 @@ export interface Order {
     createdAt: bigint;
     mobileNumber: string;
     carColour: string;
+    carNumber: string;
     items: Array<OrderItem>;
     subtotal: number;
 }
@@ -158,7 +159,7 @@ export interface backendInterface {
     getPaymentSettings(): Promise<[string, string]>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     isCallerAdmin(): Promise<boolean>;
-    placeOrder(mobileNumber: string, carModel: string, carColour: string, items: Array<OrderItem>): Promise<bigint>;
+    placeOrder(mobileNumber: string, carModel: string, carColour: string, carNumber: string, items: Array<OrderItem>): Promise<bigint>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     setPaymentSettings(phonepe: string, paytm: string): Promise<void>;
     updateMenuItem(id: bigint, name: string, description: string, price: number, categoryId: bigint, available: boolean): Promise<void>;
@@ -425,17 +426,17 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async placeOrder(arg0: string, arg1: string, arg2: string, arg3: Array<OrderItem>): Promise<bigint> {
+    async placeOrder(arg0: string, arg1: string, arg2: string, arg3: string, arg4: Array<OrderItem>): Promise<bigint> {
         if (this.processError) {
             try {
-                const result = await this.actor.placeOrder(arg0, arg1, arg2, arg3);
+                const result = await this.actor.placeOrder(arg0, arg1, arg2, arg3, arg4);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.placeOrder(arg0, arg1, arg2, arg3);
+            const result = await this.actor.placeOrder(arg0, arg1, arg2, arg3, arg4);
             return result;
         }
     }

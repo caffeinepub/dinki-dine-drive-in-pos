@@ -10,6 +10,7 @@ const DEMO_INVOICE = {
   mobile: "9876543210",
   carModel: "Swift Dzire",
   carColour: "White",
+  carNumber: "KA 01 AB 1234",
   items: [
     {
       name: "Masala Dosa",
@@ -61,6 +62,7 @@ function InvoiceView({
   mobile,
   carModel,
   carColour,
+  carNumber,
   items,
 }: {
   id: string;
@@ -68,6 +70,7 @@ function InvoiceView({
   mobile: string;
   carModel: string;
   carColour: string;
+  carNumber: string;
   items: InvoiceItem[];
 }) {
   const navigate = useNavigate();
@@ -148,6 +151,8 @@ function InvoiceView({
             <span className="font-semibold text-right">
               {carColour} {carModel}
             </span>
+            <span className="text-muted-foreground">Car Number</span>
+            <span className="font-semibold text-right">{carNumber}</span>
           </div>
 
           <div className="border-t-2 border-dashed border-border" />
@@ -263,6 +268,7 @@ export default function InvoicePage() {
         mobile={DEMO_INVOICE.mobile}
         carModel={DEMO_INVOICE.carModel}
         carColour={DEMO_INVOICE.carColour}
+        carNumber={DEMO_INVOICE.carNumber}
         items={DEMO_INVOICE.items}
       />
     );
@@ -295,6 +301,7 @@ export default function InvoicePage() {
       mobile={order.mobileNumber}
       carModel={order.carModel}
       carColour={order.carColour}
+      carNumber={order.carNumber}
       items={items}
     />
   );

@@ -47,9 +47,10 @@ export const Order = IDL.Record({
   'status' : IDL.Text,
   'total' : IDL.Float64,
   'carModel' : IDL.Text,
+  'carColour' : IDL.Text,
+  'carNumber' : IDL.Text,
   'createdAt' : IDL.Int,
   'mobileNumber' : IDL.Text,
-  'carColour' : IDL.Text,
   'items' : IDL.Vec(OrderItem),
   'subtotal' : IDL.Float64,
 });
@@ -86,7 +87,7 @@ export const idlService = IDL.Service({
     ),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
   'placeOrder' : IDL.Func(
-      [IDL.Text, IDL.Text, IDL.Text, IDL.Vec(OrderItem)],
+      [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Vec(OrderItem)],
       [IDL.Nat],
       [],
     ),
@@ -142,9 +143,10 @@ export const idlFactory = ({ IDL }) => {
     'status' : IDL.Text,
     'total' : IDL.Float64,
     'carModel' : IDL.Text,
+    'carColour' : IDL.Text,
+    'carNumber' : IDL.Text,
     'createdAt' : IDL.Int,
     'mobileNumber' : IDL.Text,
-    'carColour' : IDL.Text,
     'items' : IDL.Vec(OrderItem),
     'subtotal' : IDL.Float64,
   });
@@ -181,7 +183,7 @@ export const idlFactory = ({ IDL }) => {
       ),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
     'placeOrder' : IDL.Func(
-        [IDL.Text, IDL.Text, IDL.Text, IDL.Vec(OrderItem)],
+        [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Vec(OrderItem)],
         [IDL.Nat],
         [],
       ),
