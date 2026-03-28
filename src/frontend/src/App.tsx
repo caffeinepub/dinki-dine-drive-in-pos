@@ -9,6 +9,7 @@ import {
 import AdminLayout from "./components/AdminLayout";
 import { AppProvider } from "./context/AppContext";
 import CheckoutPage from "./pages/CheckoutPage";
+import LocationPage from "./pages/LocationPage";
 import MenuPage from "./pages/MenuPage";
 import OrderConfirmedPage from "./pages/OrderConfirmedPage";
 import PaymentPage from "./pages/PaymentPage";
@@ -57,6 +58,12 @@ const paymentRoute = createRoute({
   component: PaymentPage,
 });
 
+const locationRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/location",
+  component: LocationPage,
+});
+
 const adminLoginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/admin/login",
@@ -93,6 +100,7 @@ const routeTree = rootRoute.addChildren([
   checkoutRoute,
   orderConfirmedRoute,
   paymentRoute,
+  locationRoute,
   adminLoginRoute,
   adminLayoutRoute.addChildren([
     adminDashboardRoute,

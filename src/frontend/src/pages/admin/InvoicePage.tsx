@@ -83,8 +83,9 @@ function InvoiceView({
     );
     return sum + itemTotal + addonTotal;
   }, 0);
-  const gst = subtotal * 0.05;
-  const grandTotal = subtotal + gst;
+  const cgst = subtotal * 0.025;
+  const sgst = subtotal * 0.025;
+  const grandTotal = subtotal + cgst + sgst;
 
   return (
     <div className="min-h-screen bg-muted/40 py-8 px-4">
@@ -130,7 +131,13 @@ function InvoiceView({
             DINKI DINE VEG
           </h1>
           <p className="text-sm mt-0.5 opacity-90">Drive-In Restaurant</p>
-          <p className="text-xs mt-0.5 opacity-70">Mangalore, Karnataka</p>
+          <p className="text-xs mt-0.5 opacity-80">
+            Kadri Park Road, Kadri Hill
+          </p>
+          <p className="text-xs opacity-80">Mangalore - 575004</p>
+          <p className="text-xs mt-0.5 opacity-70">
+            Ph: +91 94482 41023 | 0824-2988813
+          </p>
         </div>
 
         <div className="px-5 py-4 space-y-4">
@@ -214,8 +221,12 @@ function InvoiceView({
               <span>₹{subtotal.toFixed(2)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">GST @ 5%</span>
-              <span>₹{gst.toFixed(2)}</span>
+              <span className="text-muted-foreground">CGST @ 2.5%</span>
+              <span>₹{cgst.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">SGST @ 2.5%</span>
+              <span>₹{sgst.toFixed(2)}</span>
             </div>
             <div className="flex justify-between font-bold text-base border-t border-border pt-2 mt-1">
               <span>Grand Total</span>
@@ -233,7 +244,7 @@ function InvoiceView({
               🙏 Thank you for dining with us!
             </p>
             <p className="text-xs text-muted-foreground">
-              Dinki Dine Veg — Mangalore
+              Dinki Dine Veg — Kadri Park Road, Mangalore 575004
             </p>
           </div>
         </div>

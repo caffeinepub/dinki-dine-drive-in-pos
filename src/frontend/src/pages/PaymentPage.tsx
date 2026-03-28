@@ -95,7 +95,7 @@ export default function PaymentPage() {
             ₹{sessionTotal.toFixed(2)}
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            Includes GST (5%)
+            Includes CGST 2.5% + SGST 2.5%
           </p>
         </motion.div>
 

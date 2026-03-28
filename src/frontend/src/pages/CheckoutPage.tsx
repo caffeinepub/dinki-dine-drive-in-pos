@@ -40,8 +40,9 @@ export default function CheckoutPage() {
     if (cart.length === 0) navigate({ to: "/menu" });
   }, [vehicleDetails, cart, navigate]);
 
-  const gst = cartTotal * 0.05;
-  const grandTotal = cartTotal + gst;
+  const cgst = cartTotal * 0.025;
+  const sgst = cartTotal * 0.025;
+  const grandTotal = cartTotal + cgst + sgst;
 
   const handlePlaceOrder = async () => {
     if (!vehicleDetails) return;
@@ -255,8 +256,12 @@ export default function CheckoutPage() {
               <span className="font-semibold">₹{cartTotal.toFixed(2)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">GST (5%)</span>
-              <span className="font-semibold">₹{gst.toFixed(2)}</span>
+              <span className="text-muted-foreground">CGST (2.5%)</span>
+              <span className="font-semibold">₹{cgst.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">SGST (2.5%)</span>
+              <span className="font-semibold">₹{sgst.toFixed(2)}</span>
             </div>
             <Separator className="my-2" />
             <div className="flex justify-between text-base">
